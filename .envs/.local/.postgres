@@ -1,0 +1,7 @@
+# PostgreSQL
+# ------------------------------------------------------------------------------
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_DB=lapanasystem
+POSTGRES_USER=sDqBlTSrTBqkFkQCascwcsCRDxncKCOp
+POSTGRES_PASSWORD=Eyw7PJICfFHl1cYRqgZTOEcrYBbTMNHSAFsZU9PTayJBm5HUvvyu5YDz1Ew1hMvD
