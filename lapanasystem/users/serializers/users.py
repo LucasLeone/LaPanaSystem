@@ -87,6 +87,9 @@ class UserLoginSerializer(serializers.Serializer):
         if not user:
             error_message = "Invalid credentials"
             raise serializers.ValidationError(error_message)
+        if not user.is_active:
+            error_message = "This account is inactive."
+            raise serializers.ValidationError(error_message)
         self.context["user"] = user
         return data
 
