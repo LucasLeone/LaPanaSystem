@@ -1,7 +1,5 @@
 """Users views."""
 
-# Django
-
 # Django REST Framework
 from rest_framework import mixins
 from rest_framework import status
