@@ -4,22 +4,22 @@
 from rest_framework import mixins
 from rest_framework import status
 from rest_framework import viewsets
-
-# Permissions
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 # Models
 from lapanasystem.products.models import Product
 from lapanasystem.products.models import ProductBrand
 from lapanasystem.products.models import ProductCategory
-from lapanasystem.products.serializers import ProductBrandSerializer
-from lapanasystem.products.serializers import ProductCategorySerializer
 
 # Serializers
 from lapanasystem.products.serializers import ProductSerializer
+from lapanasystem.products.serializers import ProductBrandSerializer
+from lapanasystem.products.serializers import ProductCategorySerializer
+
+# Permissions
 from lapanasystem.users.permissions import IsAdmin
 from lapanasystem.users.permissions import IsSeller
+from rest_framework.permissions import IsAuthenticated
 
 
 class ProductViewSet(

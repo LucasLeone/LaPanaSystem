@@ -5,20 +5,18 @@ from rest_framework import mixins
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
 
 # Permissions
+from rest_framework.permissions import AllowAny
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
+from lapanasystem.users.permissions import IsAdmin
 
 # Models
 from lapanasystem.users.models import User
 
-# Permissions
-from lapanasystem.users.permissions import IsAdmin
-from lapanasystem.users.serializers import UserCreateSerializer
-
 # Serializers
+from lapanasystem.users.serializers import UserCreateSerializer
 from lapanasystem.users.serializers import UserLoginSerializer
 from lapanasystem.users.serializers import UserLogoutSerializer
 from lapanasystem.users.serializers import UserSerializer
