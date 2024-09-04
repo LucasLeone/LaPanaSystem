@@ -8,7 +8,7 @@ from django.utils import timezone
 from lapanasystem.utils.models import LPSModel
 
 
-class Category(LPSModel):
+class ExpenseCategory(LPSModel):
     """Expense category model."""
 
     name = models.CharField(max_length=50)
@@ -27,7 +27,7 @@ class Expense(LPSModel):
     date = models.DateTimeField(default=timezone.now)
     description = models.CharField(max_length=255)
     category = models.ForeignKey(
-        Category,
+        ExpenseCategory,
         on_delete=models.SET_NULL,
         related_name="expenses",
         null=True,

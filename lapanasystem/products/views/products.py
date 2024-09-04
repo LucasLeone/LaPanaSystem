@@ -1,4 +1,4 @@
-"""Expenses views."""
+"""Products views."""
 
 # Django REST Framework
 from rest_framework import mixins
@@ -10,17 +10,19 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 # Models
-from lapanasystem.expenses.models import Expense
-from lapanasystem.expenses.models import ExpenseCategory
-from lapanasystem.expenses.serializers import CategorySerializer
+from lapanasystem.products.models import Product
+from lapanasystem.products.models import ProductBrand
+from lapanasystem.products.models import ProductCategory
+from lapanasystem.products.serializers import ProductBrandSerializer
+from lapanasystem.products.serializers import ProductCategorySerializer
 
 # Serializers
-from lapanasystem.expenses.serializers import ExpenseSerializer
+from lapanasystem.products.serializers import ProductSerializer
 from lapanasystem.users.permissions import IsAdmin
 from lapanasystem.users.permissions import IsSeller
 
 
-class ExpenseViewSet(
+class ProductViewSet(
     mixins.CreateModelMixin,
     mixins.RetrieveModelMixin,
     mixins.ListModelMixin,
@@ -28,17 +30,14 @@ class ExpenseViewSet(
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
-    """Expense view set.
+    """Product view set.
 
-    Handle create, update, retrieve and list expenses.
+    Handle create, update, retrieve and list products.
     """
 
-    serializer_class = ExpenseSerializer
-    lookup_field = "id"
-
-    def get_queryset(self):
-        """Return only active expenses."""
-        return Expense.objects.filter(is_active=True)
+    queryset = Product.objects.filter(is_active=True)
+    serializer_class = ProductSerializer
+    lookup_field = "slug"
 
     def get_permissions(self):
         """Assign permissions based on action."""
@@ -58,12 +57,12 @@ class ExpenseViewSet(
         instance = self.get_object()
         self.perform_destroy(instance)
         return Response(
-            data={"message": "Supplier deleted successfully."},
+            {"message": "Product deleted successfully."},
             status=status.HTTP_204_NO_CONTENT,
         )
 
 
-class CategoryViewSet(
+class ProductBrandViewSet(
     mixins.CreateModelMixin,
     mixins.RetrieveModelMixin,
     mixins.ListModelMixin,
@@ -71,13 +70,39 @@ class CategoryViewSet(
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
-    """Category view set.
+    """Product brand view set.
 
-    Handle create, update, retrieve and list categories.
+    Handle create, update, retrieve and list product brands.
     """
 
-    queryset = ExpenseCategory.objects.all()
-    serializer_class = CategorySerializer
+    queryset = ProductBrand.objects.all()
+    serializer_class = ProductBrandSerializer
+    lookup_field = "id"
+
+    def get_permissions(self):
+        """Assign permissions based on action."""
+        if self.action in ["create", "retrieve", "list", "update"]:
+            permissions = [IsAuthenticated, IsAdmin | IsSeller]
+        else:
+            permissions = [IsAuthenticated, IsAdmin]
+        return [permission() for permission in permissions]
+
+
+class ProductCategoryViewSet(
+    mixins.CreateModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.ListModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
+    """Product category view set.
+
+    Handle create, update, retrieve and list product categories.
+    """
+
+    queryset = ProductCategory.objects.all()
+    serializer_class = ProductCategorySerializer
     lookup_field = "id"
 
     def get_permissions(self):

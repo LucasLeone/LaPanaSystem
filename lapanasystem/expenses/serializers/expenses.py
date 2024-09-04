@@ -3,10 +3,9 @@
 # Django REST Framework
 from rest_framework import serializers
 
-from lapanasystem.expenses.models import Category
-
 # Models
 from lapanasystem.expenses.models import Expense
+from lapanasystem.expenses.models import ExpenseCategory
 from lapanasystem.expenses.models import Supplier
 from lapanasystem.users.models import User
 
@@ -17,7 +16,7 @@ class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         """Meta options."""
 
-        model = Category
+        model = ExpenseCategory
         fields = [
             "id",
             "name",
@@ -30,7 +29,9 @@ class ExpenseSerializer(serializers.ModelSerializer):
     """Expense model serializer."""
 
     user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
-    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
+    category = serializers.PrimaryKeyRelatedField(
+        queryset=ExpenseCategory.objects.all(),
+    )
     supplier = serializers.PrimaryKeyRelatedField(
         queryset=Supplier.objects.all(),
         allow_null=True,

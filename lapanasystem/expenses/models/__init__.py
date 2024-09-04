@@ -1,5 +1,5 @@
-from .expenses import Category
 from .expenses import Expense
+from .expenses import ExpenseCategory
 from .suppliers import Supplier
 
-__all__ = ["Expense", "Category", "Supplier"]
+__all__ = ["Expense", "ExpenseCategory", "Supplier"]
