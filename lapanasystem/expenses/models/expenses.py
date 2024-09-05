@@ -18,6 +18,12 @@ class ExpenseCategory(LPSModel):
         """Return name."""
         return self.name
 
+    class Meta:
+        """Meta options."""
+
+        verbose_name = "Expense category"
+        verbose_name_plural = "Expense categories"
+
 
 class Expense(LPSModel):
     """Expense model."""
@@ -40,8 +46,6 @@ class Expense(LPSModel):
         null=True,
         blank=True,
     )
-
-    is_active = models.BooleanField(default=True)
 
     def __str__(self):
         """Return title and username."""

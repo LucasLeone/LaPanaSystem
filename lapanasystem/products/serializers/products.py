@@ -47,6 +47,5 @@ class ProductSerializer(serializers.ModelSerializer):
             "description",
             "category",
             "brand",
-            "is_active",
         ]
-        read_only_fields = ["id", "is_active", "slug"]
+        read_only_fields = ["id", "slug"]

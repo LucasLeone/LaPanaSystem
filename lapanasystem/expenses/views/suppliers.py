@@ -31,12 +31,9 @@ class SupplierViewSet(
     Handle create, update, retrieve, list, and soft delete suppliers.
     """
 
+    queryset = Supplier.objects.filter(is_active=True)
     serializer_class = SupplierSerializer
     lookup_field = "id"
-
-    def get_queryset(self):
-        """Return only active suppliers."""
-        return Supplier.objects.filter(is_active=True)
 
     def get_permissions(self):
         """Assign permissions based on action."""

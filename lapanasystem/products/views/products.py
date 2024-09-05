@@ -75,7 +75,7 @@ class ProductBrandViewSet(
     Handle create, update, retrieve and list product brands.
     """
 
-    queryset = ProductBrand.objects.all()
+    queryset = ProductBrand.objects.filter(is_active=True)
     serializer_class = ProductBrandSerializer
     lookup_field = "id"
 
@@ -86,6 +86,20 @@ class ProductBrandViewSet(
         else:
             permissions = [IsAuthenticated, IsAdmin]
         return [permission() for permission in permissions]
+
+    def perform_destroy(self, instance):
+        """Disable delete (soft delete)."""
+        instance.is_active = False
+        instance.save()
+
+    def destroy(self, request, *args, **kwargs):
+        """Handle soft delete with confirmation message."""
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response(
+            {"message": "Product brand deleted successfully."},
+            status=status.HTTP_204_NO_CONTENT,
+        )
 
 
 class ProductCategoryViewSet(
@@ -101,7 +115,7 @@ class ProductCategoryViewSet(
     Handle create, update, retrieve and list product categories.
     """
 
-    queryset = ProductCategory.objects.all()
+    queryset = ProductCategory.objects.filter(is_active=True)
     serializer_class = ProductCategorySerializer
     lookup_field = "id"
 
@@ -112,3 +126,17 @@ class ProductCategoryViewSet(
         else:
             permissions = [IsAuthenticated, IsAdmin]
         return [permission() for permission in permissions]
+
+    def perform_destroy(self, instance):
+        """Disable delete (soft delete)."""
+        instance.is_active = False
+        instance.save()
+
+    def destroy(self, request, *args, **kwargs):
+        """Handle soft delete with confirmation message."""
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response(
+            {"message": "Product category deleted successfully."},
+            status=status.HTTP_204_NO_CONTENT,
+        )

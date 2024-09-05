@@ -33,12 +33,9 @@ class ExpenseViewSet(
     Handle create, update, retrieve and list expenses.
     """
 
+    queryset = Expense.objects.filter(is_active=True)
     serializer_class = ExpenseSerializer
     lookup_field = "id"
-
-    def get_queryset(self):
-        """Return only active expenses."""
-        return Expense.objects.filter(is_active=True)
 
     def get_permissions(self):
         """Assign permissions based on action."""
@@ -76,7 +73,7 @@ class CategoryViewSet(
     Handle create, update, retrieve and list categories.
     """
 
-    queryset = ExpenseCategory.objects.all()
+    queryset = ExpenseCategory.objects.filter(is_active=True)
     serializer_class = CategorySerializer
     lookup_field = "id"
 
@@ -87,3 +84,17 @@ class CategoryViewSet(
         else:
             permissions = [IsAuthenticated, IsAdmin]
         return [permission() for permission in permissions]
+
+    def perform_destroy(self, instance):
+        """Disable delete (soft delete)."""
+        instance.is_active = False
+        instance.save()
+
+    def destroy(self, request, *args, **kwargs):
+        """Handle soft delete with confirmation message."""
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response(
+            data={"message": "Category deleted successfully."},
+            status=status.HTTP_204_NO_CONTENT,
+        )

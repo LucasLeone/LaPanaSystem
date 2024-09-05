@@ -33,7 +33,7 @@ class UserViewSet(
     Handle login, logout, create, update and retrieve users.
     """
 
-    queryset = User.objects.all()
+    queryset = User.objects.filter(is_active=True)
     serializer_class = UserSerializer
     lookup_field = "username"
 
@@ -90,19 +90,13 @@ class UserViewSet(
 
     def destroy(self, request, *args, **kwargs):
         """Soft delete user."""
-        try:
-            user = self.get_object()
-            user.is_active = False
-            user.save()
-            return Response(
-                status=status.HTTP_204_NO_CONTENT,
-                data={"message": "User deleted successfully."},
-            )
-        except User.DoesNotExist:
-            return Response(
-                status=status.HTTP_404_NOT_FOUND,
-                data={"message": "User not found."},
-            )
+        user = self.get_object()
+        user.is_active = False
+        user.save()
+        return Response(
+            status=status.HTTP_204_NO_CONTENT,
+            data={"message": "User deleted successfully."},
+        )
 
     def list(self, request, *args, **kwargs):
         """List all users."""

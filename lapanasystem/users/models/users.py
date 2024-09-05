@@ -9,7 +9,7 @@ from django.db import models
 from lapanasystem.utils.models import LPSModel
 
 
-class UserType(models.Model):
+class UserType(LPSModel):
     """UserType model.
 
     Defines the types of users and associated permissions.

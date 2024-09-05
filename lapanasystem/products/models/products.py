@@ -18,6 +18,12 @@ class ProductCategory(LPSModel):
         """Return category name."""
         return self.name
 
+    class Meta:
+        """Meta options."""
+
+        verbose_name = "Product category"
+        verbose_name_plural = "Product categories"
+
 
 class ProductBrand(LPSModel):
     """Product brand model."""
@@ -67,7 +73,6 @@ class Product(LPSModel):
         on_delete=models.RESTRICT,
         related_name="products",
     )
-    is_active = models.BooleanField(default=True)
 
     def __str__(self):
         """Return product name."""
