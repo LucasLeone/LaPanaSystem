@@ -7,15 +7,17 @@ from django.conf import settings
 from rest_framework.routers import DefaultRouter
 from rest_framework.routers import SimpleRouter
 
+# Views
+from lapanasystem.users.views.users import UserViewSet
 from lapanasystem.expenses.views.expenses import CategoryViewSet
 from lapanasystem.expenses.views.expenses import ExpenseViewSet
 from lapanasystem.expenses.views.suppliers import SupplierViewSet
-from lapanasystem.products.views.products import ProductBrandViewSet
-from lapanasystem.products.views.products import ProductCategoryViewSet
-from lapanasystem.products.views.products import ProductViewSet
-
-# Views
-from lapanasystem.users.views.users import UserViewSet
+from lapanasystem.products.views.products import (
+    ProductBrandViewSet,
+    ProductCategoryViewSet,
+    ProductViewSet
+)
+from lapanasystem.customers.views.customers import CustomerViewSet
 
 # Router
 router = DefaultRouter() if settings.DEBUG else SimpleRouter()
@@ -33,6 +35,7 @@ router.register(
     ProductCategoryViewSet,
     basename="product-categories",
 )
+router.register(r"customers", CustomerViewSet, basename="customers")
 
 
 app_name = "api"

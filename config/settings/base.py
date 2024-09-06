@@ -84,6 +84,7 @@ LOCAL_APPS = [
     "lapanasystem.users",
     "lapanasystem.expenses",
     "lapanasystem.products",
+    "lapanasystem.customers",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
