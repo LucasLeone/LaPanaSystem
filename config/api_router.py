@@ -18,6 +18,7 @@ from lapanasystem.products.views.products import (
     ProductViewSet
 )
 from lapanasystem.customers.views.customers import CustomerViewSet
+from lapanasystem.sales.views.sales import SaleViewSet
 
 # Router
 router = DefaultRouter() if settings.DEBUG else SimpleRouter()
@@ -36,6 +37,7 @@ router.register(
     basename="product-categories",
 )
 router.register(r"customers", CustomerViewSet, basename="customers")
+router.register(r"sales", SaleViewSet, basename="sales")
 
 
 app_name = "api"
