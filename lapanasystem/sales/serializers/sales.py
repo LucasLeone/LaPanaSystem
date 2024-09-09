@@ -56,6 +56,7 @@ class SaleSerializer(serializers.ModelSerializer):
 
     sale_details = SaleDetailSerializer(many=True, required=False)
     state_changes = StateChangeSerializer(many=True, read_only=True)
+    state = serializers.SerializerMethodField()
 
     class Meta:
         model = Sale
@@ -66,9 +67,14 @@ class SaleSerializer(serializers.ModelSerializer):
             "date",
             "total",
             "sale_type",
+            'state',
             "sale_details",
             "state_changes",
         ]
+
+    def get_state(self, obj):
+        """Return the current state of the sale using the get_state method in the model."""
+        return obj.get_state()
 
     def validate(self, data):
         """Validate the sale details."""
