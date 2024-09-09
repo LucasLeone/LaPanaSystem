@@ -2,23 +2,22 @@
 
 # Django REST Framework
 from rest_framework import viewsets, mixins, status
-from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.exceptions import ValidationError
+from rest_framework.filters import SearchFilter, OrderingFilter
+from django_filters.rest_framework import DjangoFilterBackend
 
 # Permissions
 from rest_framework.permissions import IsAuthenticated
-from lapanasystem.users.permissions import IsAdmin, IsDelivery, IsSeller
+from lapanasystem.users.permissions import IsAdmin, IsSeller
 
 # Models
-from lapanasystem.sales.models import Sale, SaleDetail, StateChange
+from lapanasystem.sales.models import Sale
 
 # Serializers
-from lapanasystem.sales.serializers import (
-    StateChangeSerializer,
-    SaleDetailSerializer,
-    SaleSerializer,
-)
+from lapanasystem.sales.serializers import SaleSerializer
+
+# Filters
+from lapanasystem.sales.filters import SaleFilter
 
 
 class SaleViewSet(
@@ -33,6 +32,10 @@ class SaleViewSet(
 
     queryset = Sale.objects.filter(is_active=True)
     serializer_class = SaleSerializer
+    filter_backends = [SearchFilter, OrderingFilter, DjangoFilterBackend]
+    search_fields = ["customer__name", "user__username"]
+    filterset_class = SaleFilter
+    ordering_fields = ["date", "total"]
 
     def get_permissions(self):
         """Assign permissions based on action."""
