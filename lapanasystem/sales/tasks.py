@@ -13,7 +13,6 @@ from celery import shared_task
 from datetime import date, datetime
 
 
-@shared_task(name='change_state_to_ready_for_delivery')
 def change_state_to_ready_for_delivery(sale_id):
     """Change state to ready for delivery."""
     sale = Sale.objects.get(id=sale_id)
@@ -25,8 +24,6 @@ def change_state_to_ready_for_delivery(sale_id):
         last_state_change.save()
 
     StateChange.objects.create(sale=sale, state=StateChange.PENDIENTE_ENTREGA)
-
-    return sale
 
 
 @shared_task(name='check_sales_for_delivery')
