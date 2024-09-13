@@ -17,6 +17,10 @@ from lapanasystem.users.permissions import IsAdmin
 from lapanasystem.users.permissions import IsSeller
 from rest_framework.permissions import IsAuthenticated
 
+# Filters
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import OrderingFilter, SearchFilter
+
 
 class CustomerViewSet(
     mixins.CreateModelMixin,
@@ -33,7 +37,11 @@ class CustomerViewSet(
 
     queryset = Customer.objects.filter(is_active=True)
     serializer_class = CustomerModelSerializer
-    lookup_field = "id"
+    filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
+    filterset_fields = ["customer_type",]
+    ordering_fields = ["name", "email"]
+    ordering = ["name"]
+    search_fields = ["name", "email"]
 
     def get_permissions(self):
         """Assign permissions based on action."""
@@ -54,5 +62,5 @@ class CustomerViewSet(
         self.perform_destroy(instance)
         return Response(
             data={"message": "Customer deleted successfully."},
-            status=status.HTTP_204_NO_CONTENT,
+            status=status.HTTP_200_OK,
         )

@@ -9,7 +9,18 @@ from lapanasystem.utils.models import LPSModel
 
 
 class Customer(LPSModel):
-    """Customer model."""
+    """
+    Customer model.
+
+    A customer is a person or company that buys products from the store.
+
+    Attributes:
+    - name (str): Customer's name.
+    - email (str): Customer's email address.
+    - phone_number (str): Customer's phone number.
+    - address (str): Customer's address.
+    - customer_type (str): Customer's type (minorista or mayorista).
+    """
 
     MINORISTA = 'minorista'
     MAYORISTA = 'mayorista'
@@ -38,4 +49,14 @@ class Customer(LPSModel):
     )
 
     def __str__(self):
-        return f'{self.name}'
+        """Return name and email."""
+        return f'{self.name} ({self.email})'
+
+    def save(self, *args, **kwargs):
+        """
+        Save method override to normalize the email to lowercase.
+
+        This ensures that email uniqueness checks are case-insensitive.
+        """
+        self.email = self.email.lower()
+        super().save(*args, **kwargs)
