@@ -21,8 +21,8 @@ class ProductCategory(LPSModel):
     class Meta:
         """Meta options."""
 
-        verbose_name = "Product category"
-        verbose_name_plural = "Product categories"
+        verbose_name = "Product Category"
+        verbose_name_plural = "Product Categories"
 
 
 class ProductBrand(LPSModel):
@@ -34,6 +34,12 @@ class ProductBrand(LPSModel):
     def __str__(self):
         """Return brand name."""
         return self.name
+
+    class Meta:
+        """Meta options."""
+
+        verbose_name = "Product Brand"
+        verbose_name_plural = "Product Brands"
 
 
 class Product(LPSModel):
@@ -79,7 +85,12 @@ class Product(LPSModel):
         return self.name
 
     def save(self, *args, **kwargs):
-        """Override save method to generate slug automatically."""
         if not self.slug:
-            self.slug = slugify(self.name)
+            base_slug = slugify(self.name)
+            slug = base_slug
+            num = 1
+            while Product.objects.filter(slug=slug).exists():
+                slug = f"{base_slug}-{num}"
+                num += 1
+            self.slug = slug
         super().save(*args, **kwargs)

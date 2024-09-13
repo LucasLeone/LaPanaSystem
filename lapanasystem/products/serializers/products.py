@@ -29,9 +29,14 @@ class ProductSerializer(serializers.ModelSerializer):
     """Serializer for Product model."""
 
     category = serializers.PrimaryKeyRelatedField(
-        queryset=ProductCategory.objects.all(),
+        queryset=ProductCategory.objects.all(), write_only=True
     )
-    brand = serializers.PrimaryKeyRelatedField(queryset=ProductBrand.objects.all())
+    category_details = ProductCategorySerializer(source="category", read_only=True)
+    brand = serializers.PrimaryKeyRelatedField(
+        queryset=ProductBrand.objects.all(), write_only=True
+    )
+    brand_details = ProductBrandSerializer(source="brand", read_only=True)
+    weitgh_unit = serializers.ChoiceField(choices=Product.WEIGHT_UNIT_CHOICES)
 
     class Meta:
         model = Product
@@ -46,6 +51,8 @@ class ProductSerializer(serializers.ModelSerializer):
             "weight_unit",
             "description",
             "category",
+            "category_details",
             "brand",
+            "brand_details",
         ]
-        read_only_fields = ["id", "slug"]
+        read_only_fields = ["id", "slug", "category_details", "brand_details"]
