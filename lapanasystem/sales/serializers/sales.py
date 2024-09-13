@@ -9,6 +9,7 @@ from rest_framework import serializers
 # Models
 from lapanasystem.sales.models import Sale, SaleDetail, StateChange
 from lapanasystem.products.models import Product
+from lapanasystem.customers.models import Customer
 
 # Serializers
 from lapanasystem.products.serializers import ProductSerializer
@@ -89,14 +90,15 @@ class StateChangeSerializer(serializers.ModelSerializer):
 class SaleSerializer(serializers.ModelSerializer):
     """Serializer for Sale model."""
 
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
     user_details = UserSerializer(source="user", read_only=True)
+    customer = serializers.PrimaryKeyRelatedField(
+        queryset=Customer.objects.all(), required=False, write_only=True
+    )
+    customer_details = CustomerSerializer(source="customer", read_only=True)
     sale_details = SaleDetailSerializer(many=True, required=False)
     state_changes = StateChangeSerializer(many=True, read_only=True)
     state = serializers.SerializerMethodField()
-    customer = serializers.PrimaryKeyRelatedField(
-        queryset=Sale.objects.all(), required=False, write_only=True
-    )
-    customer_details = CustomerSerializer(source="customer", read_only=True)
 
     class Meta:
         model = Sale
@@ -116,7 +118,6 @@ class SaleSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
-            "user",
             "state",
             "state_changes",
             "customer_details",
