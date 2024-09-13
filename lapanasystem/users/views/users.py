@@ -21,6 +21,9 @@ from lapanasystem.users.serializers import UserLoginSerializer
 from lapanasystem.users.serializers import UserLogoutSerializer
 from lapanasystem.users.serializers import UserSerializer
 
+# Filters
+from rest_framework.filters import OrderingFilter, SearchFilter
+
 
 class UserViewSet(
     mixins.RetrieveModelMixin,
@@ -31,11 +34,36 @@ class UserViewSet(
     """User view set.
 
     Handle login, logout, create, update and retrieve users.
+
+    Actions:
+        - login: User sign in.
+        - logout: User sign out.
+        - create_user: Create a new user.
+        - retrieve: Return a user's details.
+        - list: Return a list of users.
+        - update: Update a user's details.
+        - destroy: Soft delete a user.
+
+    Filters:
+        - search: Search users by username or email.
+        - ordering: Order users by username or email.
+
+    Permissions:
+        - login: AllowAny
+        - logout: IsAuthenticated
+        - create_user: IsAuthenticated, IsAdmin
+        - retrieve: IsAuthenticated, IsAdmin
+        - list: IsAuthenticated, IsAdmin
+        - update: IsAuthenticated, IsAdmin
+        - destroy: IsAuthenticated, IsAdmin
     """
 
     queryset = User.objects.filter(is_active=True)
     serializer_class = UserSerializer
     lookup_field = "username"
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ["username", "email"]
+    ordering_fields = ["username", "email"]
 
     def get_permissions(self):
         """Assign permissions based on action."""

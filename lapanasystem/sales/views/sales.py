@@ -48,6 +48,22 @@ class SaleViewSet(
         - Cancel: Cancel a sale.
         - Mark as delivered: Mark a sale as delivered.
         - Mark as charged: Mark a sale as charged.
+
+    Filters:
+        - Search: Search sales by customer name or seller username.
+        - Ordering: Order sales by date or total.
+        - Filter: Filter sales by state, customer, or user.
+
+    Permissions:
+        - List: IsAuthenticated, IsSeller | IsAdmin
+        - Retrieve: IsAuthenticated, IsSeller | IsAdmin
+        - Create: IsAuthenticated, IsSeller | IsAdmin
+        - Update: IsAuthenticated, IsSeller | IsAdmin
+        - Partial update: IsAuthenticated, IsSeller | IsAdmin
+        - Destroy: IsAuthenticated, IsSeller | IsAdmin
+        - Cancel: IsAuthenticated, IsSeller | IsAdmin
+        - Mark as delivered: IsAuthenticated, IsDelivery | IsAdmin
+        - Mark as charged: IsAuthenticated, IsDelivery | IsAdmin
     """
 
     queryset = Sale.objects.filter(is_active=True)
@@ -66,6 +82,7 @@ class SaleViewSet(
             "destroy",
             "cancel",
             "list",
+            "retrieve",
         ]:
             permissions = [IsAuthenticated, IsSeller | IsAdmin]
         elif self.action in ["mark_as_delivered", "mark_as_charged"]:

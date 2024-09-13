@@ -17,6 +17,9 @@ from lapanasystem.users.permissions import IsAdmin
 from lapanasystem.users.permissions import IsSeller
 from rest_framework.permissions import IsAuthenticated
 
+# Filters
+from rest_framework.filters import OrderingFilter, SearchFilter
+
 
 class SupplierViewSet(
     mixins.CreateModelMixin,
@@ -36,11 +39,25 @@ class SupplierViewSet(
         - list: Return a list of suppliers.
         - update: Update a supplier's details.
         - destroy: Soft delete a supplier.
+
+    Filters:
+        - search: Search suppliers by name, email or phone.
+        - ordering: Order suppliers by name, email or phone.
+
+    Permissions:
+        - create: IsAuthenticated, IsAdmin | IsSeller
+        - retrieve: IsAuthenticated, IsAdmin | IsSeller
+        - list: IsAuthenticated, IsAdmin | IsSeller
+        - update: IsAuthenticated, IsAdmin | IsSeller
+        - destroy: IsAuthenticated, IsAdmin
     """
 
     queryset = Supplier.objects.filter(is_active=True)
     serializer_class = SupplierSerializer
     lookup_field = "id"
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ["name", "email", "phone"]
+    ordering_fields = ["name", "email", "phone"]
 
     def get_permissions(self):
         """Assign permissions based on action."""

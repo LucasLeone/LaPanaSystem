@@ -36,7 +36,7 @@ class ProductSerializer(serializers.ModelSerializer):
         queryset=ProductBrand.objects.all(), write_only=True
     )
     brand_details = ProductBrandSerializer(source="brand", read_only=True)
-    weitgh_unit = serializers.ChoiceField(choices=Product.WEIGHT_UNIT_CHOICES)
+    weight_unit = serializers.ChoiceField(choices=Product.WEIGHT_UNIT_CHOICES)
 
     class Meta:
         model = Product

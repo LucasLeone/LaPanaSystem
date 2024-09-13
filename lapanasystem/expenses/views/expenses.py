@@ -20,6 +20,10 @@ from lapanasystem.users.permissions import IsAdmin
 from lapanasystem.users.permissions import IsSeller
 from rest_framework.permissions import IsAuthenticated
 
+# Filters
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import OrderingFilter, SearchFilter
+
 
 class ExpenseViewSet(
     mixins.CreateModelMixin,
@@ -32,11 +36,34 @@ class ExpenseViewSet(
     """Expense view set.
 
     Handle create, update, retrieve and list expenses.
+
+    Actions:
+        - create: Create a new expense.
+        - retrieve: Return an expense's details.
+        - list: Return a list of expenses.
+        - update: Update an expense's details.
+        - destroy: Soft delete an expense.
+
+    Filters:
+        - search: Search expenses by name or description.
+        - ordering: Order expenses by name or amount.
+        - category: Filter expenses by category.
+
+    Permissions:
+        - create: IsAuthenticated, IsAdmin | IsSeller
+        - retrieve: IsAuthenticated, IsAdmin | IsSeller
+        - list: IsAuthenticated, IsAdmin | IsSeller
+        - update: IsAuthenticated, IsAdmin | IsSeller
+        - destroy: IsAuthenticated, IsAdmin
     """
 
     queryset = Expense.objects.filter(is_active=True)
     serializer_class = ExpenseSerializer
     lookup_field = "id"
+    filter_backends = [SearchFilter, OrderingFilter, DjangoFilterBackend]
+    search_fields = ["name", "description"]
+    ordering_fields = ["name", "amount"]
+    filterset_fields = ["category"]
 
     def get_permissions(self):
         """Assign permissions based on action."""

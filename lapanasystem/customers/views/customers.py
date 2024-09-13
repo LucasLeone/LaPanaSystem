@@ -40,6 +40,18 @@ class CustomerViewSet(
         - list: Return a list of customers.
         - update: Update a customer's details.
         - destroy: Soft delete a customer.
+
+    Filters:
+        - search: Search customers by name or email.
+        - ordering: Order customers by name or email.
+        - customer_type: Filter customers by type.
+
+    Permissions:
+        - create: IsAuthenticated, IsAdmin | IsSeller
+        - retrieve: IsAuthenticated, IsAdmin | IsSeller
+        - list: IsAuthenticated, IsAdmin | IsSeller
+        - update: IsAuthenticated, IsAdmin | IsSeller
+        - destroy: IsAuthenticated, IsAdmin
     """
 
     queryset = Customer.objects.filter(is_active=True)

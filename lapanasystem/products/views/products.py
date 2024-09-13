@@ -27,6 +27,28 @@ class ProductViewSet(ModelViewSet):
     """Product view set.
 
     Handle create, update, retrieve and list products.
+
+    Actions:
+        - create: Create a new product.
+        - retrieve: Retrieve a product.
+        - list: List products.
+        - update: Update a product.
+        - partial_update: Partial update a product.
+        - destroy: Delete a product.
+
+    Filters:
+        - search: Search products by name or barcode.
+        - ordering: Order products by name, retail price or wholesale price.
+        - category: Filter products by category.
+        - brand: Filter products by brand.
+
+    Permissions:
+        - create: IsAuthenticated, IsAdmin | IsSeller
+        - retrieve: IsAuthenticated, IsAdmin | IsSeller
+        - list: IsAuthenticated, IsAdmin | IsSeller
+        - update: IsAuthenticated, IsAdmin | IsSeller
+        - partial_update: IsAuthenticated, IsAdmin | IsSeller
+        - destroy: IsAuthenticated, IsAdmin
     """
 
     queryset = Product.objects.filter(is_active=True)
