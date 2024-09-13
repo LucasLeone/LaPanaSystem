@@ -18,6 +18,20 @@ class Sale(LPSModel):
 
     CUSTOMER_TYPE_CHOICES = [(MINORISTA, "Minorista"), (MAYORISTA, "Mayorista")]
 
+    EFECTIVO = "efectivo"
+    TARJETA = "tarjeta"
+    TRANSFERENCIA = "transferencia"
+    QR = "qr"
+    CUENTA_CORRIENTE = "cuenta_corriente"
+
+    SALE_PAYMENT_METHOD_CHOICES = [
+        (EFECTIVO, "Efectivo"),
+        (TARJETA, "Tarjeta"),
+        (TRANSFERENCIA, "Transferencia"),
+        (QR, "QR"),
+        (CUENTA_CORRIENTE, "Cuenta Corriente"),
+    ]
+
     user = models.ForeignKey("users.User", on_delete=models.RESTRICT)
     customer = models.ForeignKey("customers.Customer", on_delete=models.RESTRICT)
     date = models.DateTimeField(blank=True, null=True)
@@ -30,6 +44,9 @@ class Sale(LPSModel):
     )
     sale_type = models.CharField(
         max_length=10, choices=CUSTOMER_TYPE_CHOICES, default=MINORISTA
+    )
+    payment_method = models.CharField(
+        max_length=16, choices=SALE_PAYMENT_METHOD_CHOICES, default=EFECTIVO
     )
 
     def __str__(self):

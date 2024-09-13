@@ -33,7 +33,22 @@ class SaleViewSet(
     mixins.CreateModelMixin,
     viewsets.GenericViewSet,
 ):
-    """Sale view set."""
+    """
+    Sale view set.
+
+    Handle the creation, updating, and deletion of sales.
+
+    Actions:
+        - List: Return a list of sales.
+        - Retrieve: Return a sale.
+        - Create: Create a sale.
+        - Update: Update a sale.
+        - Partial update: Update a sale partially.
+        - Destroy: Delete a sale.
+        - Cancel: Cancel a sale.
+        - Mark as delivered: Mark a sale as delivered.
+        - Mark as charged: Mark a sale as charged.
+    """
 
     queryset = Sale.objects.filter(is_active=True)
     serializer_class = SaleSerializer
@@ -44,7 +59,14 @@ class SaleViewSet(
 
     def get_permissions(self):
         """Assign permissions based on action."""
-        if self.action in ["update", "partial_update", "destroy", "cancel", "list"]:
+        if self.action in [
+            "create",
+            "update",
+            "partial_update",
+            "destroy",
+            "cancel",
+            "list",
+        ]:
             permissions = [IsAuthenticated, IsSeller | IsAdmin]
         elif self.action in ["mark_as_delivered", "mark_as_charged"]:
             permissions = [IsAuthenticated, IsDelivery | IsAdmin]
@@ -68,22 +90,32 @@ class SaleViewSet(
 
     @action(detail=True, methods=["post"], url_path="mark-as-delivered")
     def mark_as_delivered(self, request, *args, **kwargs):
-        """Mark the sale as delivered and update state change."""
+        """
+        Marks a sale as delivered.
+
+        Raises:
+            ValidationError: If the sale has no previous state, if the sale has already been canceled,
+                if the sale has already been marked as delivered, or if the sale has already been
+                marked as paid.
+
+        Returns:
+            Response: A response indicating that the sale has been marked as delivered.
+        """
         instance = self.get_object()
 
         last_state_change = instance.state_changes.order_by("-start_date").first()
 
-        if not last_state_change or last_state_change.state == StateChange.CANCELADA:
-            raise ValidationError("The sale is already canceled.")
+        if not last_state_change:
+            raise ValidationError("La venta no tiene un estado previo.")
 
-        if (
-            not last_state_change
-            or last_state_change.state == StateChange.ENTREGADA
-            or last_state_change.state == StateChange.COBRADA
-        ):
-            raise ValidationError(
-                "The sale has been marked as delivered or is already charged."
-            )
+        if last_state_change.state == StateChange.CANCELADA:
+            raise ValidationError("La venta ya ha sido cancelada.")
+
+        if last_state_change.state == StateChange.ENTREGADA:
+            raise ValidationError("La venta ya ha sido marcada como entregada.")
+
+        if last_state_change.state == StateChange.COBRADA:
+            raise ValidationError("La venta ya ha sido cobrada.")
 
         last_state_change.end_date = timezone.now()
         last_state_change.save()
@@ -91,24 +123,34 @@ class SaleViewSet(
         StateChange.objects.create(sale=instance, state=StateChange.ENTREGADA)
 
         return Response(
-            {"message": "Sale marked as delivered."},
+            {"message": "Venta marcada como entregada."},
             status=status.HTTP_200_OK,
         )
 
     @action(detail=True, methods=["post"], url_path="mark-as-charged")
     def mark_as_charged(self, request, *args, **kwargs):
-        """Mark the sale as charged and update state change."""
+        """
+        Marks a sale as charged.
+
+        Raises:
+            ValidationError: If the sale has no previous state, if the sale has already been canceled,
+                or if the sale has already been marked as charged.
+
+        Returns:
+            Response: A response indicating that the sale has been marked as charged.
+        """
         instance = self.get_object()
 
         last_state_change = instance.state_changes.order_by("-start_date").first()
 
-        if not last_state_change or last_state_change.state == StateChange.CANCELADA:
-            raise ValidationError("The sale is already canceled.")
+        if not last_state_change:
+            raise ValidationError("La venta no tiene un estado previo.")
 
-        if not last_state_change or last_state_change.state == StateChange.COBRADA:
-            raise ValidationError(
-                "The sale has been marked as charged or is already canceled."
-            )
+        if last_state_change.state == StateChange.CANCELADA:
+            raise ValidationError("La venta ya ha sido cancelada.")
+
+        if last_state_change.state == StateChange.COBRADA:
+            raise ValidationError("La venta ya ha sido marcada como cobrada.")
 
         last_state_change.end_date = timezone.now()
         last_state_change.save()
@@ -116,22 +158,34 @@ class SaleViewSet(
         StateChange.objects.create(sale=instance, state=StateChange.COBRADA)
 
         return Response(
-            {"message": "Sale marked as charged."},
+            {"message": "Venta marcada como cobrada."},
             status=status.HTTP_200_OK,
         )
 
     @action(detail=True, methods=["post"])
     def cancel(self, request, *args, **kwargs):
-        """Cancel the sale and update state change."""
+        """
+        Cancels a sale.
+
+        Raises:
+            ValidationError: If the sale has no previous state, if the sale has already been canceled,
+                or if the sale has already been marked as charged.
+
+        Returns:
+            Response: A response indicating that the sale has been canceled.
+        """
         instance = self.get_object()
 
         last_state_change = instance.state_changes.order_by("-start_date").first()
 
-        if not last_state_change or last_state_change.state == StateChange.CANCELADA:
-            raise ValidationError("The sale is already canceled.")
+        if not last_state_change:
+            raise ValidationError("La venta no tiene un estado previo.")
 
-        if not last_state_change or last_state_change.state == StateChange.COBRADA:
-            raise ValidationError("The sale has been marked as charged.")
+        if last_state_change.state == StateChange.CANCELADA:
+            raise ValidationError("La venta ya ha sido cancelada.")
+
+        if last_state_change.state == StateChange.COBRADA:
+            raise ValidationError("No se puede cancelar una venta ya cobrada.")
 
         last_state_change.end_date = timezone.now()
         last_state_change.save()
@@ -139,6 +193,6 @@ class SaleViewSet(
         StateChange.objects.create(sale=instance, state=StateChange.CANCELADA)
 
         return Response(
-            {"message": "Sale marked as canceled."},
+            {"message": "Venta marcada como cancelada."},
             status=status.HTTP_200_OK,
         )

@@ -1,5 +1,8 @@
 """Sales serializers."""
 
+# Django
+from django.db import transaction
+
 # Django REST Framework
 from rest_framework import serializers
 
@@ -14,6 +17,9 @@ class SaleDetailSerializer(serializers.ModelSerializer):
     product = serializers.PrimaryKeyRelatedField(
         queryset=Product.objects.filter(is_active=True)
     )
+    quantity = serializers.DecimalField(
+        min_value=0.001, max_digits=10, decimal_places=3
+    )
     subtotal = serializers.SerializerMethodField()
 
     class Meta:
@@ -27,18 +33,39 @@ class SaleDetailSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """Validate the quantity."""
-        if data["quantity"] <= 0:
+        quantity = data.get("quantity", None)
+        if quantity is not None and quantity <= 0:
             raise serializers.ValidationError("La cantidad debe ser mayor a 0.")
         return data
 
     def create(self, validated_data):
         """Create a sale detail."""
-        sale = self.context.get('sale')
+        sale = self.context.get("sale")
         product = validated_data["product"]
 
-        price = product.wholesale_price if sale.sale_type == Sale.MAYORISTA else product.retail_price
+        price = (
+            product.wholesale_price
+            if sale.sale_type == Sale.MAYORISTA
+            else product.retail_price
+        )
 
         return SaleDetail.objects.create(sale=sale, price=price, **validated_data)
+
+    def update(self, instance, validated_data):
+        """Update a sale detail."""
+        sale = self.context.get("sale")
+        product = validated_data.get("product", instance.product)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.price = (
+            product.wholesale_price
+            if sale.sale_type == Sale.MAYORISTA
+            else product.retail_price
+        )
+        instance.save()
+        return instance
 
 
 class StateChangeSerializer(serializers.ModelSerializer):
@@ -67,7 +94,8 @@ class SaleSerializer(serializers.ModelSerializer):
             "date",
             "total",
             "sale_type",
-            'state',
+            "payment_method",
+            "state",
             "sale_details",
             "state_changes",
         ]
@@ -82,10 +110,13 @@ class SaleSerializer(serializers.ModelSerializer):
         total = data.get("total", None)
 
         if not sale_details and not total:
-            raise serializers.ValidationError("La venta debe tener al menos un detalle o el total.")
+            raise serializers.ValidationError(
+                "La venta debe tener al menos un detalle o el total."
+            )
 
         return data
 
+    @transaction.atomic
     def create(self, validated_data):
         """Create a sale."""
         sale_details_data = validated_data.pop("sale_details", [])
@@ -96,8 +127,7 @@ class SaleSerializer(serializers.ModelSerializer):
             sale_detail_data["product"] = product.pk
 
             sale_detail_serializer = SaleDetailSerializer(
-                data=sale_detail_data,
-                context={"sale": sale}
+                data=sale_detail_data, context={"sale": sale}
             )
             sale_detail_serializer.is_valid(raise_exception=True)
             sale_detail_serializer.save()
@@ -110,26 +140,55 @@ class SaleSerializer(serializers.ModelSerializer):
 
         return sale
 
+    @transaction.atomic
     def update(self, instance, validated_data):
         """Update a sale."""
         sale_details_data = validated_data.pop("sale_details", [])
         sale = instance
 
-        for sale_detail_data in sale_details_data:
-            product = sale_detail_data.pop("product")
-            sale_detail_data["product"] = product.pk
+        sale_type_changed = False
+        new_sale_type = validated_data.get("sale_type", sale.sale_type)
+        if new_sale_type != sale.sale_type:
+            sale_type_changed = True
 
-            sale_detail_serializer = SaleDetailSerializer(
-                data=sale_detail_data,
-                context={"sale": sale}
-            )
-            sale_detail_serializer.is_valid(raise_exception=True)
-            sale_detail_serializer.save()
+        for attr, value in validated_data.items():
+            setattr(sale, attr, value)
+        sale.save()
 
-        if sale_details_data:
-            sale.calculate_total()
-            StateChange.objects.create(sale=sale, state=StateChange.CREADA)
-        else:
-            sale.total = validated_data.get("total", sale.total)
+        if sale_type_changed:
+            for detail in sale.sale_details.all():
+                sale_detail_serializer = SaleDetailSerializer(
+                    detail, data={}, context={"sale": sale}, partial=True
+                )
+                sale_detail_serializer.is_valid(raise_exception=True)
+                sale_detail_serializer.save()
+
+        existing_details = {detail.id: detail for detail in sale.sale_details.all()}
+        incoming_ids = []
+
+        for detail_data in sale_details_data:
+            detail_id = detail_data.get("id", None)
+            detail_data["product"] = detail_data["product"].pk
+            if detail_id:
+                detail = existing_details.get(detail_id)
+                if detail:
+                    sale_detail_serializer = SaleDetailSerializer(
+                        detail, data=detail_data, context={"sale": sale}
+                    )
+                    sale_detail_serializer.is_valid(raise_exception=True)
+                    sale_detail_serializer.save()
+                incoming_ids.append(detail_id)
+            else:
+                sale_detail_serializer = SaleDetailSerializer(
+                    data=detail_data, context={"sale": sale}
+                )
+                sale_detail_serializer.is_valid(raise_exception=True)
+                sale_detail_serializer.save()
+
+        for detail_id, detail in existing_details.items():
+            if detail_id not in incoming_ids:
+                detail.delete()
+
+        sale.calculate_total()
 
         return sale
