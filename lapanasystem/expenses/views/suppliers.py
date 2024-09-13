@@ -29,6 +29,13 @@ class SupplierViewSet(
     """Supplier view set.
 
     Handle create, update, retrieve, list, and soft delete suppliers.
+
+    Actions:
+        - create: Create a new supplier.
+        - retrieve: Return a supplier's details.
+        - list: Return a list of suppliers.
+        - update: Update a supplier's details.
+        - destroy: Soft delete a supplier.
     """
 
     queryset = Supplier.objects.filter(is_active=True)
@@ -54,5 +61,5 @@ class SupplierViewSet(
         self.perform_destroy(instance)
         return Response(
             data={"message": "Supplier deleted successfully."},
-            status=status.HTTP_204_NO_CONTENT,
+            status=status.HTTP_200_OK
         )

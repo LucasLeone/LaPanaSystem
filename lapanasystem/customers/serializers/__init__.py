@@ -1,3 +1,3 @@
-from .customers import CustomerModelSerializer
+from .customers import CustomerSerializer
 
-__all__ = ['CustomerModelSerializer']
+__all__ = ['CustomerSerializer']

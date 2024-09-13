@@ -7,7 +7,7 @@ from rest_framework import serializers
 from lapanasystem.customers.models import Customer
 
 
-class CustomerModelSerializer(serializers.ModelSerializer):
+class CustomerSerializer(serializers.ModelSerializer):
     """Customer model serializer."""
 
     class Meta:

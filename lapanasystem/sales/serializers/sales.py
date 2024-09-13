@@ -10,13 +10,21 @@ from rest_framework import serializers
 from lapanasystem.sales.models import Sale, SaleDetail, StateChange
 from lapanasystem.products.models import Product
 
+# Serializers
+from lapanasystem.products.serializers import ProductSerializer
+from lapanasystem.customers.serializers import CustomerSerializer
+from lapanasystem.users.serializers import UserSerializer
+
 
 class SaleDetailSerializer(serializers.ModelSerializer):
     """Serializer for SaleDetail model."""
 
     product = serializers.PrimaryKeyRelatedField(
-        queryset=Product.objects.filter(is_active=True)
+        queryset=Product.objects.filter(is_active=True),
+        write_only=True,
     )
+    product_details = ProductSerializer(source="product", read_only=True)
+
     quantity = serializers.DecimalField(
         min_value=0.001, max_digits=10, decimal_places=3
     )
@@ -24,8 +32,8 @@ class SaleDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SaleDetail
-        fields = ["id", "product", "quantity", "price", "subtotal"]
-        read_only_fields = ["id", "price"]
+        fields = ["id", "product", "product_details", "quantity", "price", "subtotal"]
+        read_only_fields = ["id", "price", "subtotal", "product_details"]
 
     def get_subtotal(self, obj):
         """Calculate the subtotal based on price and quantity."""
@@ -81,16 +89,23 @@ class StateChangeSerializer(serializers.ModelSerializer):
 class SaleSerializer(serializers.ModelSerializer):
     """Serializer for Sale model."""
 
+    user_details = UserSerializer(source="user", read_only=True)
     sale_details = SaleDetailSerializer(many=True, required=False)
     state_changes = StateChangeSerializer(many=True, read_only=True)
     state = serializers.SerializerMethodField()
+    customer = serializers.PrimaryKeyRelatedField(
+        queryset=Sale.objects.all(), required=False, write_only=True
+    )
+    customer_details = CustomerSerializer(source="customer", read_only=True)
 
     class Meta:
         model = Sale
         fields = [
             "id",
             "user",
+            "user_details",
             "customer",
+            "customer_details",
             "date",
             "total",
             "sale_type",
@@ -98,6 +113,14 @@ class SaleSerializer(serializers.ModelSerializer):
             "state",
             "sale_details",
             "state_changes",
+        ]
+        read_only_fields = [
+            "id",
+            "user",
+            "state",
+            "state_changes",
+            "customer_details",
+            "user_details",
         ]
 
     def get_state(self, obj):

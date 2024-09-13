@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from lapanasystem.customers.models import Customer
 
 # Serializers
-from lapanasystem.customers.serializers import CustomerModelSerializer
+from lapanasystem.customers.serializers import CustomerSerializer
 
 # Permissions
 from lapanasystem.users.permissions import IsAdmin
@@ -33,10 +33,17 @@ class CustomerViewSet(
     """Customer view set.
 
     Handle create, update, retrieve, list, and soft delete customers.
+
+    Actions:
+        - create: Create a new customer.
+        - retrieve: Return a customer's details.
+        - list: Return a list of customers.
+        - update: Update a customer's details.
+        - destroy: Soft delete a customer.
     """
 
     queryset = Customer.objects.filter(is_active=True)
-    serializer_class = CustomerModelSerializer
+    serializer_class = CustomerSerializer
     filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
     filterset_fields = ["customer_type",]
     ordering_fields = ["name", "email"]

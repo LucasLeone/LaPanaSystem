@@ -21,8 +21,8 @@ class ExpenseCategory(LPSModel):
     class Meta:
         """Meta options."""
 
-        verbose_name = "Expense category"
-        verbose_name_plural = "Expense categories"
+        verbose_name = "Expense Category"
+        verbose_name_plural = "Expense Categories"
 
 
 class Expense(LPSModel):
@@ -30,7 +30,7 @@ class Expense(LPSModel):
 
     user = models.ForeignKey("users.User", on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    date = models.DateTimeField(default=timezone.now)
+    date = models.DateTimeField(auto_now_add=True)
     description = models.CharField(max_length=255)
     category = models.ForeignKey(
         ExpenseCategory,
@@ -48,5 +48,5 @@ class Expense(LPSModel):
     )
 
     def __str__(self):
-        """Return title and username."""
-        return f"{self.description} - {self.user.username} - ${self.amount}"
+        """Return a string representation of the expense."""
+        return f"Expense {self.id}: {self.amount} by {self.user.username}"

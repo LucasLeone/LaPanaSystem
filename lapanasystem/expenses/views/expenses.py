@@ -4,6 +4,7 @@
 from rest_framework import mixins
 from rest_framework import status
 from rest_framework import viewsets
+from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 
 # Models
@@ -60,17 +61,17 @@ class ExpenseViewSet(
         )
 
 
-class CategoryViewSet(
-    mixins.CreateModelMixin,
-    mixins.RetrieveModelMixin,
-    mixins.ListModelMixin,
-    mixins.UpdateModelMixin,
-    mixins.DestroyModelMixin,
-    viewsets.GenericViewSet,
-):
+class CategoryViewSet(ModelViewSet):
     """Category view set.
 
     Handle create, update, retrieve and list categories.
+
+    Actions:
+        - create: Create a new category.
+        - retrieve: Return a category's details.
+        - list: Return a list of categories.
+        - update: Update a category's details.
+        - destroy: Soft delete a category.
     """
 
     queryset = ExpenseCategory.objects.filter(is_active=True)
@@ -79,11 +80,15 @@ class CategoryViewSet(
 
     def get_permissions(self):
         """Assign permissions based on action."""
-        if self.action in ["create", "retrieve", "list", "update"]:
+        if self.action in ["create", "retrieve", "list", "update", "partial_update"]:
             permissions = [IsAuthenticated, IsAdmin | IsSeller]
         else:
             permissions = [IsAuthenticated, IsAdmin]
         return [permission() for permission in permissions]
+
+    def perform_create(self, serializer):
+        """Assign the user from the request to the expense."""
+        serializer.save(user=self.request.user)
 
     def perform_destroy(self, instance):
         """Disable delete (soft delete)."""
@@ -96,5 +101,5 @@ class CategoryViewSet(
         self.perform_destroy(instance)
         return Response(
             data={"message": "Category deleted successfully."},
-            status=status.HTTP_204_NO_CONTENT,
+            status=status.HTTP_200_OK,
         )

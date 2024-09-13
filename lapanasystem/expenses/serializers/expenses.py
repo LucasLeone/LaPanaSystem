@@ -7,7 +7,9 @@ from rest_framework import serializers
 from lapanasystem.expenses.models import Expense
 from lapanasystem.expenses.models import ExpenseCategory
 from lapanasystem.expenses.models import Supplier
-from lapanasystem.users.models import User
+
+# Serializers
+from .suppliers import SupplierSerializer
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -28,31 +30,27 @@ class CategorySerializer(serializers.ModelSerializer):
 class ExpenseSerializer(serializers.ModelSerializer):
     """Expense model serializer."""
 
-    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+
     category = serializers.PrimaryKeyRelatedField(
         queryset=ExpenseCategory.objects.all(),
+        write_only=True
     )
     supplier = serializers.PrimaryKeyRelatedField(
         queryset=Supplier.objects.all(),
+        write_only=True,
         allow_null=True,
+        required=False
     )
+
+    category_details = CategorySerializer(source='category', read_only=True)
+    supplier_details = SupplierSerializer(source='supplier', read_only=True, allow_null=True)
 
     class Meta:
         model = Expense
-        fields = ["id", "user", "amount", "date", "description", "category", "supplier"]
-        read_only_fields = ["id"]
-
-    def create(self, validated_data):
-        """Handle expense creation."""
-        return Expense.objects.create(**validated_data)
-
-    def update(self, instance, validated_data):
-        """Handle expense update."""
-        instance.user = validated_data.get("user", instance.user)
-        instance.amount = validated_data.get("amount", instance.amount)
-        instance.date = validated_data.get("date", instance.date)
-        instance.description = validated_data.get("description", instance.description)
-        instance.category = validated_data.get("category", instance.category)
-        instance.supplier = validated_data.get("supplier", instance.supplier)
-        instance.save()
-        return instance
+        fields = [
+            "id", "user", "amount", "date", "description",
+            "category", "supplier",
+            "category_details", "supplier_details"
+        ]
+        read_only_fields = ["id", "category_details", "supplier_details"]
