@@ -16,6 +16,9 @@ from lapanasystem.products.serializers import ProductSerializer
 from lapanasystem.customers.serializers import CustomerSerializer
 from lapanasystem.users.serializers import UserSerializer
 
+# Utilities
+from decimal import Decimal
+
 
 class SaleDetailSerializer(serializers.ModelSerializer):
     """Serializer for SaleDetail model."""
@@ -27,7 +30,7 @@ class SaleDetailSerializer(serializers.ModelSerializer):
     product_details = ProductSerializer(source="product", read_only=True)
 
     quantity = serializers.DecimalField(
-        min_value=0.001, max_digits=10, decimal_places=3
+        min_value=Decimal('0.001'), max_digits=10, decimal_places=3
     )
     subtotal = serializers.SerializerMethodField()
 
