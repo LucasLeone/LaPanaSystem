@@ -62,11 +62,13 @@ class Product(LPSModel):
         max_digits=10,
         decimal_places=2,
     )
-    weight = models.DecimalField("product weight", max_digits=10, decimal_places=3)
+    weight = models.DecimalField(
+        "product weight", max_digits=10, decimal_places=3, blank=True, null=True
+    )
     weight_unit = models.CharField(
         max_length=2,
         choices=WEIGHT_UNIT_CHOICES,
-        default=GRAMS,
+        blank=True
     )
     description = models.TextField("product description", blank=True)
     category = models.ForeignKey(
