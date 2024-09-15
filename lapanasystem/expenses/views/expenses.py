@@ -1,9 +1,7 @@
 """Expenses views."""
 
 # Django REST Framework
-from rest_framework import mixins
 from rest_framework import status
-from rest_framework import viewsets
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 
@@ -25,14 +23,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter, SearchFilter
 
 
-class ExpenseViewSet(
-    mixins.CreateModelMixin,
-    mixins.RetrieveModelMixin,
-    mixins.ListModelMixin,
-    mixins.UpdateModelMixin,
-    mixins.DestroyModelMixin,
-    viewsets.GenericViewSet,
-):
+class ExpenseViewSet(ModelViewSet):
     """Expense view set.
 
     Handle create, update, retrieve and list expenses.
@@ -45,8 +36,8 @@ class ExpenseViewSet(
         - destroy: Soft delete an expense.
 
     Filters:
-        - search: Search expenses by name or description.
-        - ordering: Order expenses by name or amount.
+        - search: Search expenses by description.
+        - ordering: Order expenses by amount.
         - category: Filter expenses by category.
 
     Permissions:
@@ -61,8 +52,8 @@ class ExpenseViewSet(
     serializer_class = ExpenseSerializer
     lookup_field = "id"
     filter_backends = [SearchFilter, OrderingFilter, DjangoFilterBackend]
-    search_fields = ["name", "description"]
-    ordering_fields = ["name", "amount"]
+    search_fields = ["description"]
+    ordering_fields = ["amount"]
     filterset_fields = ["category"]
 
     def get_permissions(self):
@@ -83,7 +74,7 @@ class ExpenseViewSet(
         instance = self.get_object()
         self.perform_destroy(instance)
         return Response(
-            data={"message": "Supplier deleted successfully."},
+            data={"message": "Expense deleted successfully."},
             status=status.HTTP_204_NO_CONTENT,
         )
 

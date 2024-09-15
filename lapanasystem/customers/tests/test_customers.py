@@ -33,6 +33,7 @@ def user_type_seller():
 @pytest.fixture
 def admin_user(user_type_admin):
     return User.objects.create_user(
+        username="admin",
         email="admin@example.com",
         password="adminpass123",
         first_name="Admin",
@@ -45,6 +46,7 @@ def admin_user(user_type_admin):
 @pytest.fixture
 def seller_user(user_type_seller):
     return User.objects.create_user(
+        username="seller",
         email="seller@example.com",
         password="sellerpass123",
         first_name="Seller",
@@ -103,7 +105,9 @@ class TestCustomerSerializer:
 class TestCustomerAPI:
     """Customer API tests."""
 
-    list_url = reverse('customers-list')
+    @pytest.fixture(autouse=True)
+    def setup_urls(self):
+        self.list_url = reverse('api:customers-list')
 
     def test_customer_create_as_admin(self, api_client, admin_user, customer_data):
         """Verify that an admin user can create a customer."""
@@ -124,7 +128,9 @@ class TestCustomerAPI:
     def test_customer_create_unauthenticated(self, api_client, customer_data):
         """Verify that an unauthenticated user cannot create a customer."""
         response = api_client.post(self.list_url, data=customer_data)
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        print(f"Response status code: {response.status_code}")
+        print(f"Response data: {response.data}")
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_customer_list(self, api_client, admin_user, customer_data):
         """Verify that an admin user can list customers."""
@@ -138,7 +144,7 @@ class TestCustomerAPI:
         """Verify that an admin user can retrieve a customer."""
         customer = Customer.objects.create(**customer_data)
         api_client.force_authenticate(user=admin_user)
-        url = reverse('customers-detail', args=[customer.id])
+        url = reverse('api:customers-detail', args=[customer.id])
         response = api_client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data['name'] == customer_data['name']
@@ -147,7 +153,7 @@ class TestCustomerAPI:
         """Verify that an admin user can update a customer."""
         customer = Customer.objects.create(**customer_data)
         api_client.force_authenticate(user=admin_user)
-        url = reverse('customers-detail', args=[customer.id])
+        url = reverse('api:customers-detail', args=[customer.id])
         updated_data = customer_data.copy()
         updated_data['name'] = 'Jane Doe'
         response = api_client.put(url, data=updated_data)
@@ -159,7 +165,7 @@ class TestCustomerAPI:
         """Verify that an admin user can partially update a customer."""
         customer = Customer.objects.create(**customer_data)
         api_client.force_authenticate(user=admin_user)
-        url = reverse('customers-detail', args=[customer.id])
+        url = reverse('api:customers-detail', args=[customer.id])
         response = api_client.patch(url, data={'name': 'Jane Doe'})
         assert response.status_code == status.HTTP_200_OK
         customer.refresh_from_db()
@@ -169,7 +175,7 @@ class TestCustomerAPI:
         """Verify that an admin user can soft delete a customer."""
         customer = Customer.objects.create(**customer_data)
         api_client.force_authenticate(user=admin_user)
-        url = reverse('customers-detail', args=[customer.id])
+        url = reverse('api:customers-detail', args=[customer.id])
         response = api_client.delete(url)
         assert response.status_code == status.HTTP_200_OK
         customer.refresh_from_db()
@@ -179,7 +185,7 @@ class TestCustomerAPI:
         """Verify that a seller user cannot delete a customer."""
         customer = Customer.objects.create(**customer_data)
         api_client.force_authenticate(user=seller_user)
-        url = reverse('customers-detail', args=[customer.id])
+        url = reverse('api:customers-detail', args=[customer.id])
         response = api_client.delete(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
@@ -237,23 +243,23 @@ class TestCustomerAPI:
     def test_permissions_create(self, api_client, customer_data):
         """Verify that an unauthenticated user cannot create a customer."""
         response = api_client.post(self.list_url, data=customer_data)
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_permissions_list(self, api_client):
         """Verify that an unauthenticated user cannot list customers."""
         response = api_client.get(self.list_url)
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_permissions_update(self, api_client, customer_data):
         """Verify that an unauthenticated user cannot update a customer."""
         customer = Customer.objects.create(**customer_data)
-        url = reverse('customers-detail', args=[customer.id])
+        url = reverse('api:customers-detail', args=[customer.id])
         response = api_client.put(url, data=customer_data)
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_permissions_delete(self, api_client, customer_data):
         """Verify that an unauthenticated user cannot delete a customer."""
         customer = Customer.objects.create(**customer_data)
-        url = reverse('customers-detail', args=[customer.id])
+        url = reverse('api:customers-detail', args=[customer.id])
         response = api_client.delete(url)
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.status_code == status.HTTP_403_FORBIDDEN

@@ -1,10 +1,9 @@
 """Customers views."""
 
 # Django REST Framework
-from rest_framework import mixins
 from rest_framework import status
-from rest_framework import viewsets
 from rest_framework.response import Response
+from rest_framework.viewsets import ModelViewSet
 
 # Models
 from lapanasystem.customers.models import Customer
@@ -22,14 +21,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter, SearchFilter
 
 
-class CustomerViewSet(
-    mixins.CreateModelMixin,
-    mixins.RetrieveModelMixin,
-    mixins.ListModelMixin,
-    mixins.UpdateModelMixin,
-    mixins.DestroyModelMixin,
-    viewsets.GenericViewSet,
-):
+class CustomerViewSet(ModelViewSet):
     """Customer view set.
 
     Handle create, update, retrieve, list, and soft delete customers.

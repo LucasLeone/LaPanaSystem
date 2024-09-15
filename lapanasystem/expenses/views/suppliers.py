@@ -1,10 +1,9 @@
 """Suppliers views."""
 
 # Django REST Framework
-from rest_framework import mixins
 from rest_framework import status
-from rest_framework import viewsets
 from rest_framework.response import Response
+from rest_framework.viewsets import ModelViewSet
 
 # Models
 from lapanasystem.expenses.models import Supplier
@@ -21,14 +20,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.filters import OrderingFilter, SearchFilter
 
 
-class SupplierViewSet(
-    mixins.CreateModelMixin,
-    mixins.RetrieveModelMixin,
-    mixins.ListModelMixin,
-    mixins.UpdateModelMixin,
-    mixins.DestroyModelMixin,
-    viewsets.GenericViewSet,
-):
+class SupplierViewSet(ModelViewSet):
     """Supplier view set.
 
     Handle create, update, retrieve, list, and soft delete suppliers.
@@ -41,8 +33,8 @@ class SupplierViewSet(
         - destroy: Soft delete a supplier.
 
     Filters:
-        - search: Search suppliers by name, email or phone.
-        - ordering: Order suppliers by name, email or phone.
+        - search: Search suppliers by name, email or phone_number.
+        - ordering: Order suppliers by name, email or phone_number.
 
     Permissions:
         - create: IsAuthenticated, IsAdmin | IsSeller
@@ -56,8 +48,8 @@ class SupplierViewSet(
     serializer_class = SupplierSerializer
     lookup_field = "id"
     filter_backends = [SearchFilter, OrderingFilter]
-    search_fields = ["name", "email", "phone"]
-    ordering_fields = ["name", "email", "phone"]
+    search_fields = ["name", "email", "phone_number"]
+    ordering_fields = ["name", "email", "phone_number"]
 
     def get_permissions(self):
         """Assign permissions based on action."""
