@@ -1,4 +1,4 @@
-"""Users and UserType models."""
+"""Users models."""
 
 # Django
 from django.contrib.auth.models import AbstractUser
@@ -9,24 +9,20 @@ from django.db import models
 from lapanasystem.utils.models import LPSModel
 
 
-class UserType(LPSModel):
-    """UserType model.
-
-    Defines the types of users and associated permissions.
-    """
-
-    name = models.CharField(max_length=50, unique=True)
-    description = models.TextField(blank=True)
-
-    def __str__(self):
-        return self.name
-
-
 class User(LPSModel, AbstractUser):
     """User model.
 
-    Extend from Django's Abstract User and link to UserType.
+    Extend from Django's Abstract User.
     """
+
+    ADMIN = "ADMIN"
+    SELLER = "SELLER"
+    DELIVERY = "DELIVERY"
+    USER_TYPE_CHOICES = [
+        (ADMIN, "Admin"),
+        (SELLER, "Seller"),
+        (DELIVERY, "Delivery"),
+    ]
 
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
@@ -48,10 +44,8 @@ class User(LPSModel, AbstractUser):
     )
     phone_number = models.CharField(validators=[phone_regex], max_length=17)
 
-    user_type = models.ForeignKey(
-        UserType,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="users",
+    user_type = models.CharField(
+        max_length=10,
+        choices=USER_TYPE_CHOICES,
+        default=SELLER,
     )

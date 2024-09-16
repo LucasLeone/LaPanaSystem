@@ -12,7 +12,7 @@ from rest_framework import status
 from lapanasystem.sales.models import Sale, SaleDetail, StateChange
 from lapanasystem.products.models import Product, ProductBrand, ProductCategory
 from lapanasystem.customers.models import Customer
-from lapanasystem.users.models import User, UserType
+from lapanasystem.users.models import User
 
 # Utilities
 import pytest
@@ -22,57 +22,41 @@ import pytest
 def api_client():
     return APIClient()
 
-
 @pytest.fixture
-def user_type_admin():
-    return UserType.objects.create(name="Administrador", description="Admin user")
-
-
-@pytest.fixture
-def user_type_seller():
-    return UserType.objects.create(name="Vendedor", description="Seller user")
-
-
-@pytest.fixture
-def user_type_delivery():
-    return UserType.objects.create(name="Repartidor", description="Delivery user")
-
-
-@pytest.fixture
-def admin_user(user_type_admin):
+def admin_user():
     return User.objects.create_user(
         username="admin",
         email="admin@example.com",
         password="adminpass123",
         first_name="Admin",
         last_name="User",
-        user_type=user_type_admin,
+        user_type=User.ADMIN,
         is_staff=True,
         is_superuser=True,
     )
 
 
 @pytest.fixture
-def seller_user(user_type_seller):
+def seller_user():
     return User.objects.create_user(
         username="seller",
         email="seller@example.com",
         password="sellerpass123",
         first_name="Seller",
         last_name="User",
-        user_type=user_type_seller,
+        user_type=User.SELLER,
     )
 
 
 @pytest.fixture
-def delivery_user(user_type_delivery):
+def delivery_user():
     return User.objects.create_user(
         username="delivery",
         email="delivery@example.com",
         password="deliverypass123",
         first_name="Delivery",
         last_name="User",
-        user_type=user_type_delivery,
+        user_type=User.DELIVERY,
     )
 
 

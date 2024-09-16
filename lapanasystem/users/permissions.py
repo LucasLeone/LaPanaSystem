@@ -3,6 +3,9 @@
 # Django
 from rest_framework import permissions
 
+# Models
+from lapanasystem.users.models import User
+
 
 class IsAdmin(permissions.BasePermission):
     """Allow access only to admin users."""
@@ -10,9 +13,8 @@ class IsAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
         """Check if the user is admin."""
         return (
-            request.user.user_type
-            and request.user.user_type.name == "Administrador"
-            or request.user.is_superuser
+            request.user.is_authenticated and
+            (request.user.user_type == User.ADMIN or request.user.is_superuser)
         )
 
 
@@ -21,7 +23,7 @@ class IsSeller(permissions.BasePermission):
 
     def has_permission(self, request, view):
         """Check if the user is seller."""
-        return request.user.user_type and request.user.user_type.name == "Vendedor"
+        return request.user.is_authenticated and request.user.user_type == User.SELLER
 
 
 class IsDelivery(permissions.BasePermission):
@@ -29,4 +31,4 @@ class IsDelivery(permissions.BasePermission):
 
     def has_permission(self, request, view):
         """Check if the user is delivery."""
-        return request.user.user_type and request.user.user_type.name == "Repartidor"
+        return request.user.is_authenticated and request.user.user_type == User.DELIVERY

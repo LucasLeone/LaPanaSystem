@@ -10,7 +10,7 @@ from rest_framework import status
 
 # Models
 from lapanasystem.expenses.models import Supplier
-from lapanasystem.users.models import User, UserType
+from lapanasystem.users.models import User
 
 # Serializers
 from lapanasystem.expenses.serializers import SupplierSerializer
@@ -23,40 +23,29 @@ import pytest
 def api_client():
     return APIClient()
 
-
 @pytest.fixture
-def user_type_admin():
-    return UserType.objects.create(name="Administrador", description="Admin user")
-
-
-@pytest.fixture
-def user_type_seller():
-    return UserType.objects.create(name="Vendedor", description="Seller user")
-
-
-@pytest.fixture
-def admin_user(user_type_admin):
+def admin_user():
     return User.objects.create_user(
         username="admin",
         email="admin@example.com",
         password="adminpass123",
         first_name="Admin",
         last_name="User",
-        user_type=user_type_admin,
+        user_type="ADMIN",
         is_staff=True,
         is_superuser=True
     )
 
 
 @pytest.fixture
-def seller_user(user_type_seller):
+def seller_user():
     return User.objects.create_user(
         username="seller",
         email="seller@example.com",
         password="sellerpass123",
         first_name="Seller",
         last_name="User",
-        user_type=user_type_seller
+        user_type="SELLER"
     )
 
 

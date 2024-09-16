@@ -8,18 +8,19 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 # Permissions
-from rest_framework.permissions import AllowAny
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from lapanasystem.users.permissions import IsAdmin
 
 # Models
 from lapanasystem.users.models import User
 
 # Serializers
-from lapanasystem.users.serializers import UserCreateSerializer
-from lapanasystem.users.serializers import UserLoginSerializer
-from lapanasystem.users.serializers import UserLogoutSerializer
-from lapanasystem.users.serializers import UserSerializer
+from lapanasystem.users.serializers import (
+    UserCreateSerializer,
+    UserLoginSerializer,
+    UserLogoutSerializer,
+    UserSerializer,
+)
 
 # Filters
 from rest_framework.filters import OrderingFilter, SearchFilter
@@ -67,19 +68,20 @@ class UserViewSet(
 
     def get_permissions(self):
         """Assign permissions based on action."""
-        if self.action in ["login"]:
-            permissions = [AllowAny]
+        if self.action == "login":
+            permission_classes = [AllowAny]
         elif self.action in [
             "create_user",
             "update",
+            "partial_update",
             "retrieve",
             "list",
             "destroy",
         ]:
-            permissions = [IsAuthenticated, IsAdmin]
+            permission_classes = [IsAuthenticated, IsAdmin]
         else:
-            permissions = [IsAuthenticated]
-        return [permission() for permission in permissions]
+            permission_classes = [IsAuthenticated]
+        return [permission() for permission in permission_classes]
 
     @action(detail=False, methods=["post"])
     def login(self, request):
@@ -91,7 +93,7 @@ class UserViewSet(
             "user": UserSerializer(user).data,
             "access_token": token,
         }
-        return Response(data, status=status.HTTP_201_CREATED)
+        return Response(data, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=["post"])
     def logout(self, request):
@@ -128,14 +130,14 @@ class UserViewSet(
 
     def list(self, request, *args, **kwargs):
         """List all users."""
-        users = User.objects.filter(is_active=True)
+        users = self.get_queryset()
         data = UserSerializer(users, many=True).data
         return Response(data, status=status.HTTP_200_OK)
 
     def update(self, request, *args, **kwargs):
         """Update user."""
         user = self.get_object()
-        if user.is_active is False:
+        if not user.is_active:
             return Response(
                 status=status.HTTP_400_BAD_REQUEST,
                 data={"message": "User is inactive."},

@@ -2,6 +2,7 @@
 
 # Django
 from django.contrib.auth import authenticate
+from django.core.validators import RegexValidator
 
 # Django REST Framework
 from rest_framework import serializers
@@ -9,23 +10,12 @@ from rest_framework.authtoken.models import Token
 
 # Models
 from lapanasystem.users.models import User
-from lapanasystem.users.models import UserType
-
-
-class UserTypeSerializer(serializers.ModelSerializer):
-    """UserType model serializer."""
-
-    class Meta:
-        """Meta options."""
-
-        model = UserType
-        fields = ["id", "name", "description"]
 
 
 class UserSerializer(serializers.ModelSerializer):
     """User model serializer."""
 
-    user_type = serializers.PrimaryKeyRelatedField(queryset=UserType.objects.all())
+    user_type = serializers.ChoiceField(choices=User.USER_TYPE_CHOICES)
 
     class Meta:
         """Meta options."""
@@ -44,32 +34,19 @@ class UserSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         """Handle user creation."""
-        user_type = validated_data.pop("user_type")
-        return User.objects.create(user_type=user_type, **validated_data)
+        return User.objects.create_user(**validated_data)
 
     def update(self, instance, validated_data):
         """Handle user update."""
-        user_type = validated_data.pop("user_type", None)
-
-        if user_type:
-            instance.user_type = user_type
-
+        instance.user_type = validated_data.get("user_type", instance.user_type)
         instance.first_name = validated_data.get("first_name", instance.first_name)
         instance.last_name = validated_data.get("last_name", instance.last_name)
         instance.email = validated_data.get("email", instance.email)
         instance.phone_number = validated_data.get(
-            "phone_number",
-            instance.phone_number,
+            "phone_number", instance.phone_number
         )
         instance.save()
-
         return instance
-
-    def get_user_type(self, obj):
-        """Get user type as a serialized representation."""
-        if obj.user_type:
-            return UserTypeSerializer(obj.user_type).data
-        return None
 
 
 class UserLoginSerializer(serializers.Serializer):
@@ -79,7 +56,7 @@ class UserLoginSerializer(serializers.Serializer):
     """
 
     username = serializers.CharField()
-    password = serializers.CharField(min_length=8, max_length=64)
+    password = serializers.CharField(min_length=8, max_length=64, write_only=True)
 
     def validate(self, data):
         """Check credentials."""
@@ -122,12 +99,24 @@ class UserCreateSerializer(serializers.Serializer):
     """
 
     username = serializers.CharField()
-    password = serializers.CharField(min_length=8, max_length=64)
+    password = serializers.CharField(min_length=8, max_length=64, write_only=True)
     first_name = serializers.CharField(max_length=50)
     last_name = serializers.CharField(max_length=50)
     email = serializers.EmailField()
     phone_number = serializers.CharField()
-    user_type = serializers.PrimaryKeyRelatedField(queryset=UserType.objects.all())
+    user_type = serializers.ChoiceField(choices=User.USER_TYPE_CHOICES)
+
+    def validate_phone_number(self, value):
+        """Check if the phone number is valid."""
+        phone_regex = RegexValidator(
+            regex=r"^\+?1?\d{9,15}$",
+            message=(
+                "Phone number must be entered in the format: +999999999. "
+                "Up to 15 digits allowed."
+            ),
+        )
+        phone_regex(value)
+        return value
 
     def validate(self, data):
         """Check if the user exists."""
