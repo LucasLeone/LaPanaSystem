@@ -35,7 +35,7 @@ class SaleViewSet(ModelViewSet):
     Actions:
         - List: Return a list of sales.
         - Retrieve: Return a sale.
-        - Create: Create a sale.
+        - Create: Create a sale with or without details.
         - Update: Update a sale.
         - Partial update: Update a sale partially.
         - Destroy: Delete a sale.

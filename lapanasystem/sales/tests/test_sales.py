@@ -22,6 +22,7 @@ import pytest
 def api_client():
     return APIClient()
 
+
 @pytest.fixture
 def admin_user():
     return User.objects.create_user(
@@ -159,7 +160,7 @@ class TestSaleAPI:
     def setup_urls(self):
         self.list_url = reverse("api:sales-list")
 
-    def test_sale_create_as_admin(
+    def test_sale__with_details_create_as_admin(
         self, api_client, admin_user, customer, product_retail
     ):
         """Verify that an admin user can create a sale."""
@@ -179,7 +180,23 @@ class TestSaleAPI:
         assert sale.state_changes.count() == 1
         assert sale.state_changes.first().state == StateChange.CREADA
 
-    def test_sale_create_as_seller(
+    def test_sale_without_sale_details_as_admin(self, api_client, admin_user, customer):
+        """Verify that an admin user can create a sale with only total."""
+        api_client.force_authenticate(user=admin_user)
+        sale_data = {
+            "customer": customer.id,
+            "sale_type": Sale.MINORISTA,
+            "payment_method": Sale.EFECTIVO,
+            "total": 1600,
+        }
+        response = api_client.post(self.list_url, data=sale_data, format="json")
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["total"] == "1600.00"
+        assert response.data["sale_details"] == []
+        assert response.data["payment_method"] == Sale.EFECTIVO
+        assert response.data["sale_type"] == Sale.MINORISTA
+
+    def test_sale_with_details_create_as_seller(
         self, api_client, seller_user, customer, product_retail
     ):
         """Verify that a seller user can create a sale."""
@@ -195,6 +212,24 @@ class TestSaleAPI:
         sale = Sale.objects.first()
         assert sale.sale_type == Sale.MAYORISTA
         assert sale.sale_details.first().price == product_retail.wholesale_price
+
+    def test_sale_without_sale_details_as_seller(
+        self, api_client, seller_user, customer
+    ):
+        """Verify that a seller user can create a sale with only total."""
+        api_client.force_authenticate(user=seller_user)
+        sale_data = {
+            "customer": customer.id,
+            "sale_type": Sale.MINORISTA,
+            "payment_method": Sale.EFECTIVO,
+            "total": 1600,
+        }
+        response = api_client.post(self.list_url, data=sale_data, format="json")
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["total"] == "1600.00"
+        assert response.data["sale_details"] == []
+        assert response.data["payment_method"] == Sale.EFECTIVO
+        assert response.data["sale_type"] == Sale.MINORISTA
 
     def test_sale_create_unauthenticated(self, api_client, customer, product_retail):
         """Verify that an unauthenticated user cannot create a sale."""
@@ -362,15 +397,15 @@ class TestSaleAPI:
         last_state = sale.get_state()
         assert last_state == StateChange.COBRADA
 
-    def test_sale_permissions_cancel_as_seller(
-        self, api_client, seller_user, customer, sale
+    def test_sale_permissions_cancel_as_delivery(
+        self, api_client, delivery_user, customer, sale
     ):
-        """Verify that a seller user cannot cancel a sale."""
+        """Verify that a delivery user cannot cancel a sale."""
         StateChange.objects.create(sale=sale, state=StateChange.CREADA)
-        api_client.force_authenticate(user=seller_user)
+        api_client.force_authenticate(user=delivery_user)
         url = reverse("api:sales-cancel", args=[sale.id])
         response = api_client.post(url)
-        assert response.status_code == status.HTTP_200_OK
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_sale_permissions_mark_as_delivered_as_seller(
         self, api_client, seller_user, customer, sale
@@ -465,4 +500,38 @@ class TestSaleAPI:
         api_client.force_authenticate(user=admin_user)
         url = reverse("api:sales-cancel", args=[sale.id])
         response = api_client.post(url)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_sale_create_with_invalid_product(self, api_client, admin_user, customer):
+        """Verify that creating a sale with an invalid product raises an error."""
+        api_client.force_authenticate(user=admin_user)
+        sale_data = {
+            "customer": customer.id,
+            "sale_type": Sale.MINORISTA,
+            "payment_method": Sale.EFECTIVO,
+            "sale_details": [{"product": 999, "quantity": "1.000"}],
+        }
+        response = api_client.post(self.list_url, data=sale_data, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_sale_partial_update_with_invalid_total(
+        self, api_client, admin_user, customer, sale
+    ):
+        """Verify that partially updating a sale with an invalid total raises an error."""
+        api_client.force_authenticate(user=admin_user)
+        url = reverse("api:sales-detail", args=[sale.id])
+        partial_update_data = {"total": "-50.00"}
+        response = api_client.patch(url, data=partial_update_data, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_sale_update_with_invalid_sale_detail(
+        self, api_client, admin_user, customer, sale
+    ):
+        """Verify that updating a sale with an invalid sale detail raises an error."""
+        api_client.force_authenticate(user=admin_user)
+        url = reverse("api:sales-detail", args=[sale.id])
+        update_data = {
+            "sale_details": [{"id": 999, "product": 999, "quantity": "1.000"}]
+        }
+        response = api_client.put(url, data=update_data, format="json")
         assert response.status_code == status.HTTP_400_BAD_REQUEST
