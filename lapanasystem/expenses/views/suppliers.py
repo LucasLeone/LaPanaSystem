@@ -41,6 +41,7 @@ class SupplierViewSet(ModelViewSet):
         - retrieve: IsAuthenticated, IsAdmin | IsSeller
         - list: IsAuthenticated, IsAdmin | IsSeller
         - update: IsAuthenticated, IsAdmin | IsSeller
+        - partial_update: IsAuthenticated, IsAdmin | IsSeller
         - destroy: IsAuthenticated, IsAdmin
     """
 
@@ -53,7 +54,7 @@ class SupplierViewSet(ModelViewSet):
 
     def get_permissions(self):
         """Assign permissions based on action."""
-        if self.action in ["create", "retrieve", "list", "update"]:
+        if self.action in ["create", "retrieve", "list", "update", "partial_update"]:
             permissions = [IsAuthenticated, IsAdmin | IsSeller]
         else:
             permissions = [IsAuthenticated, IsAdmin]

@@ -56,6 +56,7 @@ class UserViewSet(
         - retrieve: IsAuthenticated, IsAdmin
         - list: IsAuthenticated, IsAdmin
         - update: IsAuthenticated, IsAdmin
+        - partial_update: IsAuthenticated, IsAdmin
         - destroy: IsAuthenticated, IsAdmin
     """
 
