@@ -1,0 +1,30 @@
+meta {
+  name: Update sale with details
+  type: http
+  seq: 6
+}
+
+patch {
+  url: http://localhost:8000/api/v1/sales/50/
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Token {{Token}}
+}
+
+body:json {
+  {
+    "user": 1,
+    "customer": 6,
+    "sale_type": "mayorista",
+    "sale_details": [
+      {
+        "product": 3,
+        "quantity": 13
+      }
+    ]
+  }
+
+}

@@ -1,0 +1,15 @@
+meta {
+  name: Mark as delivered
+  type: http
+  seq: 7
+}
+
+post {
+  url: http://localhost:8000/api/v1/sales/47/mark-as-delivered/
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Token {{Token}}
+}

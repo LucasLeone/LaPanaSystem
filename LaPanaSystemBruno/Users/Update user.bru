@@ -1,0 +1,21 @@
+meta {
+  name: Update user
+  type: http
+  seq: 5
+}
+
+put {
+  url: http://localhost:8000/api/v1/users/test4/
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Token {{Token}}
+}
+
+body:json {
+  {
+    "first_name": "testchangename"
+  }
+}

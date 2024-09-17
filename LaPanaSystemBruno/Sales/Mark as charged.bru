@@ -1,0 +1,15 @@
+meta {
+  name: Mark as charged
+  type: http
+  seq: 8
+}
+
+post {
+  url: http://localhost:8000/api/v1/sales/47/mark-as-charged/
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Token {{Token}}
+}

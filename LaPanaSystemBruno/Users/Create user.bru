@@ -1,0 +1,27 @@
+meta {
+  name: Create user
+  type: http
+  seq: 3
+}
+
+post {
+  url: http://localhost:8000/api/v1/users/create-user/
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Token {{Token}}
+}
+
+body:json {
+  {
+    "username": "test4",
+    "first_name": "testname",
+    "last_name": "testlastname",
+    "email": "emailasdasd@test3.com",
+    "phone_number": "+549123123123",
+    "user_type": "SELLER",
+    "password": "admin12345"
+  }
+}

@@ -1,0 +1,15 @@
+meta {
+  name: Delete expense category
+  type: http
+  seq: 5
+}
+
+delete {
+  url: http://localhost:8000/api/v1/expense-categories/2/
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Token {{Token}}
+}

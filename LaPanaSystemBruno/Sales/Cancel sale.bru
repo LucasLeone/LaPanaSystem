@@ -1,0 +1,15 @@
+meta {
+  name: Cancel sale
+  type: http
+  seq: 9
+}
+
+post {
+  url: http://localhost:8000/api/v1/sales/35/cancel/
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Token {{Token}}
+}

@@ -1,0 +1,15 @@
+meta {
+  name: Delete user
+  type: http
+  seq: 7
+}
+
+delete {
+  url: http://localhost:8000/api/v1/users/test4/
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Token {{Token}}
+}

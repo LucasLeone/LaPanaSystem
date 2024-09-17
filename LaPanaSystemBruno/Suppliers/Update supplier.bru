@@ -1,0 +1,21 @@
+meta {
+  name: Update supplier
+  type: http
+  seq: 4
+}
+
+patch {
+  url: http://localhost:8000/api/v1/suppliers/1/
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Token {{Token}}
+}
+
+body:json {
+  {
+    "name": "test change name"
+  }
+}

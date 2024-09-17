@@ -1,0 +1,21 @@
+meta {
+  name: Delete brand
+  type: http
+  seq: 5
+}
+
+delete {
+  url: http://localhost:8000/api/v1/product-brands/2/
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Token {{Token}}
+}
+
+body:json {
+  {
+    "name": "Coca-Cola"
+  }
+}

@@ -1,0 +1,21 @@
+meta {
+  name: Update brand
+  type: http
+  seq: 4
+}
+
+patch {
+  url: http://localhost:8000/api/v1/product-brands/1/
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Token {{Token}}
+}
+
+body:json {
+  {
+    "name": "Coca-Cola"
+  }
+}

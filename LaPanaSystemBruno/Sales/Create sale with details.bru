@@ -1,0 +1,31 @@
+meta {
+  name: Create sale with details
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:8000/api/v1/sales/
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Token {{Token}}
+}
+
+body:json {
+  {
+    "customer": 6,
+    "date": "2024-09-13", // Or not
+    // "payment_method": "tarjeta", // Or not
+    "sale_type": "mayorista",
+    "sale_details": [
+      {
+        "product": 3,
+        "quantity": 26.5
+      }
+    ]
+  }
+
+}

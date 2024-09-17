@@ -1,0 +1,27 @@
+meta {
+  name: List products
+  type: http
+  seq: 2
+}
+
+get {
+  url: http://localhost:8000/api/v1/products/
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Token {{Token}}
+}
+
+body:json {
+  {
+    "barcode": "123125234432",
+    "name": "Test product",
+    "retail_price": 4500,
+    "wholesale_price": 3500,
+    "weight": 100,
+    "category": 2,
+    "brand": 1
+  }
+}

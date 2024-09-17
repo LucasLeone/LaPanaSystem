@@ -1,0 +1,15 @@
+meta {
+  name: Delete supplier
+  type: http
+  seq: 5
+}
+
+delete {
+  url: http://localhost:8000/api/v1/suppliers/2/
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Token {{Token}}
+}

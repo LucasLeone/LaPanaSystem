@@ -1,0 +1,21 @@
+meta {
+  name: Create brand
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:8000/api/v1/product-brands/
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Token {{Token}}
+}
+
+body:json {
+  {
+    "name": "test"
+  }
+}
