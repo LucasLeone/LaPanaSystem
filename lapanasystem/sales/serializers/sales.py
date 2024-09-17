@@ -141,6 +141,11 @@ class SaleSerializer(serializers.ModelSerializer):
                 "La venta debe tener al menos un detalle o el total."
             )
 
+        if sale_details and total:
+            raise serializers.ValidationError(
+                "La venta no puede tener detalles y total al mismo tiempo."
+            )
+
         return data
 
     @transaction.atomic

@@ -535,3 +535,42 @@ class TestSaleAPI:
         }
         response = api_client.put(url, data=update_data, format="json")
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_sale_create_with_zero_quantity(self, api_client, admin_user, customer, product_retail):
+        """Verify that creating a sale with zero quantity raises an error."""
+        api_client.force_authenticate(user=admin_user)
+        sale_data = {
+            "customer": customer.id,
+            "sale_type": Sale.MINORISTA,
+            "payment_method": Sale.EFECTIVO,
+            "sale_details": [{"product": product_retail.id, "quantity": "0.000"}],
+        }
+        response = api_client.post(self.list_url, data=sale_data, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "quantity" in response.data["sale_details"][0]
+
+    def test_sale_create_with_negative_quantity(self, api_client, admin_user, customer, product_retail):
+        """Verify that creating a sale with negative quantity raises an error."""
+        api_client.force_authenticate(user=admin_user)
+        sale_data = {
+            "customer": customer.id,
+            "sale_type": Sale.MINORISTA,
+            "payment_method": Sale.EFECTIVO,
+            "sale_details": [{"product": product_retail.id, "quantity": "-1.000"}],
+        }
+        response = api_client.post(self.list_url, data=sale_data, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "quantity" in response.data["sale_details"][0]
+
+    def test_sale_create_with_inconsistent_total(self, api_client, admin_user, customer, product_retail):
+        """Verify that creating a sale with an inconsistent total raises an error."""
+        api_client.force_authenticate(user=admin_user)
+        sale_data = {
+            "customer": customer.id,
+            "sale_type": Sale.MINORISTA,
+            "payment_method": Sale.EFECTIVO,
+            "sale_details": [{"product": product_retail.id, "quantity": "2.000"}],
+            "total": "15.00",
+        }
+        response = api_client.post(self.list_url, data=sale_data, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
