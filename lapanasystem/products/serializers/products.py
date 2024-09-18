@@ -37,7 +37,10 @@ class ProductSerializer(serializers.ModelSerializer):
     )
     brand_details = ProductBrandSerializer(source="brand", read_only=True)
     weight_unit = serializers.ChoiceField(
-        choices=Product.WEIGHT_UNIT_CHOICES, required=False
+        choices=Product.WEIGHT_UNIT_CHOICES, required=False, allow_null=True
+    )
+    wholesale_price = serializers.DecimalField(
+        max_digits=10, decimal_places=2, required=False, allow_null=True
     )
 
     class Meta:
