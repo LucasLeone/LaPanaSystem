@@ -16,6 +16,7 @@ class UserSerializer(serializers.ModelSerializer):
     """User model serializer."""
 
     user_type = serializers.ChoiceField(choices=User.USER_TYPE_CHOICES)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     class Meta:
         """Meta options."""
@@ -29,6 +30,7 @@ class UserSerializer(serializers.ModelSerializer):
             "email",
             "phone_number",
             "user_type",
+            "password",
         ]
         read_only_fields = ["id"]
 
@@ -38,6 +40,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         """Handle user update."""
+        instance.username = validated_data.get("username", instance.username)
         instance.user_type = validated_data.get("user_type", instance.user_type)
         instance.first_name = validated_data.get("first_name", instance.first_name)
         instance.last_name = validated_data.get("last_name", instance.last_name)
@@ -45,6 +48,10 @@ class UserSerializer(serializers.ModelSerializer):
         instance.phone_number = validated_data.get(
             "phone_number", instance.phone_number
         )
+        password = validated_data.get("password", None)
+        if password:
+            instance.set_password(password)
+
         instance.save()
         return instance
 
