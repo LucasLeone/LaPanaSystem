@@ -51,8 +51,8 @@ class CustomerViewSet(ModelViewSet):
     serializer_class = CustomerSerializer
     filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
     filterset_fields = ["customer_type",]
-    ordering_fields = ["name", "email"]
-    ordering = ["name"]
+    ordering_fields = ["id", "name", "email", "created"]
+    ordering = ["-created"]
     search_fields = ["name", "email"]
 
     def get_permissions(self):

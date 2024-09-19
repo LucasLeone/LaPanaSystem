@@ -11,8 +11,8 @@ from lapanasystem.utils.models import LPSModel
 class ProductCategory(LPSModel):
     """Product category model."""
 
-    name = models.CharField("category name", max_length=255)
-    description = models.TextField("category description", blank=True)
+    name = models.CharField("category name", max_length=30)
+    description = models.TextField("category description", blank=True, max_length=255)
 
     def __str__(self):
         """Return category name."""
@@ -28,8 +28,8 @@ class ProductCategory(LPSModel):
 class ProductBrand(LPSModel):
     """Product brand model."""
 
-    name = models.CharField("brand name", max_length=255)
-    description = models.TextField("brand description", blank=True)
+    name = models.CharField("brand name", max_length=30)
+    description = models.TextField("brand description", blank=True, max_length=255)
 
     def __str__(self):
         """Return brand name."""
@@ -58,20 +58,13 @@ class Product(LPSModel):
     slug = models.SlugField(unique=True, blank=True, max_length=255)
     retail_price = models.DecimalField("retail price", max_digits=10, decimal_places=2)
     wholesale_price = models.DecimalField(
-        "wholesale price",
-        max_digits=10,
-        decimal_places=2,
-        blank=True,
-        null=True
+        "wholesale price", max_digits=10, decimal_places=2, blank=True, null=True
     )
     weight = models.DecimalField(
         "product weight", max_digits=10, decimal_places=3, blank=True, null=True
     )
     weight_unit = models.CharField(
-        max_length=2,
-        choices=WEIGHT_UNIT_CHOICES,
-        blank=True,
-        null=True
+        max_length=2, choices=WEIGHT_UNIT_CHOICES, blank=True, null=True
     )
     description = models.TextField("product description", blank=True)
     category = models.ForeignKey(
