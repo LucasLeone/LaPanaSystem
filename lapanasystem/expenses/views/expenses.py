@@ -105,10 +105,6 @@ class CategoryViewSet(ModelViewSet):
             permissions = [IsAuthenticated, IsAdmin]
         return [permission() for permission in permissions]
 
-    def perform_create(self, serializer):
-        """Assign the user from the request to the expense."""
-        serializer.save(user=self.request.user)
-
     def perform_destroy(self, instance):
         """Disable delete (soft delete)."""
         instance.is_active = False
