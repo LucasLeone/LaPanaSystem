@@ -118,6 +118,7 @@ class SaleSerializer(serializers.ModelSerializer):
     sale_details = SaleDetailSerializer(many=True, required=False)
     state_changes = StateChangeSerializer(many=True, read_only=True)
     state = serializers.SerializerMethodField()
+    needs_delivery = serializers.BooleanField(write_only=True, default=False)
 
     class Meta:
         model = Sale
@@ -134,6 +135,7 @@ class SaleSerializer(serializers.ModelSerializer):
             "state",
             "sale_details",
             "state_changes",
+            "needs_delivery",
         ]
         read_only_fields = [
             "id",
@@ -168,6 +170,7 @@ class SaleSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         """Create a sale."""
         sale_details_data = validated_data.pop("sale_details", [])
+        needs_delivery = validated_data.pop("needs_delivery", False)
         sale = Sale.objects.create(**validated_data)
 
         for sale_detail_data in sale_details_data:
@@ -180,9 +183,12 @@ class SaleSerializer(serializers.ModelSerializer):
             sale_detail_serializer.is_valid(raise_exception=True)
             sale_detail_serializer.save()
 
-        if sale_details_data:
+        if sale_detail_data and needs_delivery is True:
             sale.calculate_total()
             StateChange.objects.create(sale=sale, state=StateChange.CREADA)
+        elif sale_detail_data and needs_delivery is False:
+            sale.calculate_total()
+            StateChange.objects.create(sale=sale, state=StateChange.COBRADA)
         else:
             StateChange.objects.create(sale=sale, state=StateChange.COBRADA)
 
