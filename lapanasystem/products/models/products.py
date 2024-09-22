@@ -54,7 +54,7 @@ class Product(LPSModel):
     ]
 
     barcode = models.CharField("product barcode", max_length=255, unique=True)
-    name = models.CharField("product name", max_length=255)
+    name = models.CharField("product name", max_length=50)
     slug = models.SlugField(unique=True, blank=True, max_length=255)
     retail_price = models.DecimalField("retail price", max_digits=10, decimal_places=2)
     wholesale_price = models.DecimalField(
