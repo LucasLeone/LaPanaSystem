@@ -81,7 +81,7 @@ class SaleDetail(LPSModel):
     quantity = models.DecimalField(
         max_digits=10,
         decimal_places=3,
-        validators=[MinValueValidator(Decimal('0.00'))],
+        validators=[MinValueValidator(Decimal('0.001'))],
     )
     price = models.DecimalField(
         max_digits=10,
@@ -91,16 +91,8 @@ class SaleDetail(LPSModel):
     )
 
     def __str__(self):
-        """Return sale detail."""
+        """Return sale and product.."""
         return f"{self.sale} - {self.product}"
-
-    def save(self, *args, **kwargs):
-        """Set the price automatically based on sale type."""
-        if self.sale.sale_type == Sale.MAYORISTA:
-            self.price = self.product.wholesale_price
-        else:
-            self.price = self.product.retail_price
-        super().save(*args, **kwargs)
 
     def calculate_subtotal(self):
         """Calculate subtotal."""

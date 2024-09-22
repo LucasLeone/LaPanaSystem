@@ -35,12 +35,14 @@ class SaleDetailSerializer(serializers.ModelSerializer):
     subtotal = serializers.SerializerMethodField()
 
     class Meta:
+        """Meta options."""
+
         model = SaleDetail
         fields = ["id", "product", "product_details", "quantity", "price", "subtotal"]
         read_only_fields = ["id", "price", "subtotal", "product_details"]
 
     def get_subtotal(self, obj):
-        """Calculate the subtotal based on price and quantity."""
+        """Return the subtotal of the detail."""
         return obj.price * obj.quantity
 
     def validate(self, data):
@@ -50,32 +52,46 @@ class SaleDetailSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("La cantidad debe ser mayor a 0.")
         return data
 
+    def _get_price(self, sale, product):
+        """Return the price of the product based on the sale type."""
+        if sale.sale_type == Sale.MAYORISTA:
+            if product.wholesale_price and product.wholesale_price > 0:
+                return product.wholesale_price
+            elif product.retail_price and product.retail_price > 0:
+                return product.retail_price
+            else:
+                raise serializers.ValidationError(
+                    f"El producto '{product.name}' no tiene precio definido para venta mayorista."
+                )
+        else:  # Venta minorista
+            if product.retail_price and product.retail_price > 0:
+                return product.retail_price
+            else:
+                raise serializers.ValidationError(
+                    f"El producto '{product.name}' no tiene precio definido para venta minorista."
+                )
+
     def create(self, validated_data):
         """Create a sale detail."""
         sale = self.context.get("sale")
         product = validated_data["product"]
 
-        price = (
-            product.wholesale_price
-            if sale.sale_type == Sale.MAYORISTA
-            else product.retail_price
-        )
+        price = self._get_price(sale, product)
+        validated_data['price'] = price
 
-        return SaleDetail.objects.create(sale=sale, price=price, **validated_data)
+        return SaleDetail.objects.create(sale=sale, **validated_data)
 
     def update(self, instance, validated_data):
         """Update a sale detail."""
         sale = self.context.get("sale")
         product = validated_data.get("product", instance.product)
 
+        # Actualizar los campos del detalle
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
 
-        instance.price = (
-            product.wholesale_price
-            if sale.sale_type == Sale.MAYORISTA
-            else product.retail_price
-        )
+        # Recalcular el precio
+        instance.price = self._get_price(sale, product)
         instance.save()
         return instance
 
