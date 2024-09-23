@@ -223,6 +223,8 @@ class SaleSerializer(serializers.ModelSerializer):
             incoming_ids = []
 
             for detail_data in sale_details_data:
+                product = detail_data.pop("product")
+                detail_data["product"] = product.pk
                 detail_id = detail_data.get("id", None)
                 if detail_id:
                     detail = existing_details.get(detail_id)
