@@ -154,12 +154,12 @@ class SaleSerializer(serializers.ModelSerializer):
         sale_details = data.get("sale_details", [])
         total = data.get("total", None)
 
-        if not sale_details and not total:
+        if not sale_details and total is None:
             raise serializers.ValidationError(
                 "La venta debe tener al menos un detalle o el total."
             )
 
-        if sale_details and total:
+        if sale_details and total is not None:
             raise serializers.ValidationError(
                 "La venta no puede tener detalles y total al mismo tiempo."
             )
@@ -173,20 +173,21 @@ class SaleSerializer(serializers.ModelSerializer):
         needs_delivery = validated_data.pop("needs_delivery", False)
         sale = Sale.objects.create(**validated_data)
 
-        for sale_detail_data in sale_details_data:
-            product = sale_detail_data.pop("product")
-            sale_detail_data["product"] = product.pk
+        if sale_details_data:
+            for sale_detail_data in sale_details_data:
+                product = sale_detail_data.pop("product")
+                sale_detail_data["product"] = product.pk
 
-            sale_detail_serializer = SaleDetailSerializer(
-                data=sale_detail_data, context={"sale": sale}
-            )
-            sale_detail_serializer.is_valid(raise_exception=True)
-            sale_detail_serializer.save()
+                sale_detail_serializer = SaleDetailSerializer(
+                    data=sale_detail_data, context={"sale": sale}
+                )
+                sale_detail_serializer.is_valid(raise_exception=True)
+                sale_detail_serializer.save()
 
-        if sale_detail_data and needs_delivery is True:
+        if sale_details_data and needs_delivery is True:
             sale.calculate_total()
             StateChange.objects.create(sale=sale, state=StateChange.CREADA)
-        elif sale_detail_data and needs_delivery is False:
+        elif sale_details_data and needs_delivery is False:
             sale.calculate_total()
             StateChange.objects.create(sale=sale, state=StateChange.COBRADA)
         else:
@@ -197,7 +198,7 @@ class SaleSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def update(self, instance, validated_data):
         """Update a sale."""
-        sale_details_data = validated_data.pop("sale_details", [])
+        sale_details_data = validated_data.pop("sale_details", None)
         sale = instance
 
         sale_type_changed = False
@@ -217,32 +218,37 @@ class SaleSerializer(serializers.ModelSerializer):
                 sale_detail_serializer.is_valid(raise_exception=True)
                 sale_detail_serializer.save()
 
-        existing_details = {detail.id: detail for detail in sale.sale_details.all()}
-        incoming_ids = []
+        if sale_details_data is not None:
+            existing_details = {detail.id: detail for detail in sale.sale_details.all()}
+            incoming_ids = []
 
-        for detail_data in sale_details_data:
-            detail_id = detail_data.get("id", None)
-            detail_data["product"] = detail_data["product"].pk
-            if detail_id:
-                detail = existing_details.get(detail_id)
-                if detail:
+            for detail_data in sale_details_data:
+                detail_id = detail_data.get("id", None)
+                if detail_id:
+                    detail = existing_details.get(detail_id)
+                    if detail:
+                        sale_detail_serializer = SaleDetailSerializer(
+                            detail, data=detail_data, context={"sale": sale}
+                        )
+                        sale_detail_serializer.is_valid(raise_exception=True)
+                        sale_detail_serializer.save()
+                        incoming_ids.append(detail_id)
+                else:
                     sale_detail_serializer = SaleDetailSerializer(
-                        detail, data=detail_data, context={"sale": sale}
+                        data=detail_data, context={"sale": sale}
                     )
                     sale_detail_serializer.is_valid(raise_exception=True)
                     sale_detail_serializer.save()
-                incoming_ids.append(detail_id)
-            else:
-                sale_detail_serializer = SaleDetailSerializer(
-                    data=detail_data, context={"sale": sale}
-                )
-                sale_detail_serializer.is_valid(raise_exception=True)
-                sale_detail_serializer.save()
 
-        for detail_id, detail in existing_details.items():
-            if detail_id not in incoming_ids:
-                detail.delete()
+            # Eliminar detalles que no están en incoming_ids
+            for detail_id, detail in existing_details.items():
+                if detail_id not in incoming_ids:
+                    detail.delete()
 
-        sale.calculate_total()
+            # Recalcular total basado en los detalles
+            sale.calculate_total()
+        else:
+            # No se proporcionaron sale_details_data, mantener el total proporcionado
+            pass
 
         return sale
