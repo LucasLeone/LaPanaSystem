@@ -1,0 +1,29 @@
+meta {
+  name: Create return
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:8000/api/v1/returns/
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Token {{Token}}
+}
+
+body:json {
+  {
+    "customer": 6,
+    "date": "2024-09-22", // Or not
+    "return_details": [
+      {
+        "product": 19,
+        "quantity": 3
+      }
+    ]
+  }
+
+}

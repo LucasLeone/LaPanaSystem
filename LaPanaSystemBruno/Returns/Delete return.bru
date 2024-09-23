@@ -1,0 +1,29 @@
+meta {
+  name: Delete return
+  type: http
+  seq: 5
+}
+
+delete {
+  url: http://localhost:8000/api/v1/returns/1/
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Token {{Token}}
+}
+
+body:json {
+  {
+    "customer": 6,
+    "date": "2024-09-22", // Or not
+    "return_details": [
+      {
+        "product": 19,
+        "quantity": 3
+      }
+    ]
+  }
+
+}

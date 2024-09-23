@@ -1,0 +1,25 @@
+meta {
+  name: List returns
+  type: http
+  seq: 1
+}
+
+get {
+  url: http://localhost:8000/api/v1/returns/?min_total=3000&max_total=20200&start_date=2024-01-01&end_date=2024-12-31
+  body: none
+  auth: none
+}
+
+params:query {
+  min_total: 3000
+  max_total: 20200
+  start_date: 2024-01-01
+  end_date: 2024-12-31
+  ~date: 2023-10-15
+  ~customer: 6
+  ~search: John
+}
+
+headers {
+  Authorization: Token {{Token}}
+}
