@@ -40,7 +40,7 @@ class ReturnViewSet(ModelViewSet):
     Filters:
         - Search: Search returns by customer name.
         - Ordering: Order returns by date or total.
-        - Filter: Filter returns by customer, date, or total.
+        - Filter: Filter returns by user, customer, date, or total.
 
     Permissions:
         - List: IsAuthenticated, IsDelivery | IsAdmin

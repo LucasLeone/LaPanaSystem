@@ -6,6 +6,7 @@ import django_filters
 # Models
 from lapanasystem.sales.models import Return
 from lapanasystem.customers.models import Customer
+from lapanasystem.users.models import User
 
 # Utilities
 from django.utils import timezone
@@ -21,6 +22,7 @@ class ReturnFilter(django_filters.FilterSet):
     end_date = django_filters.DateFilter(field_name="date", lookup_expr='lte')
     date = django_filters.DateFilter(field_name="date", method='filter_by_date')
     customer = django_filters.ModelChoiceFilter(queryset=Customer.objects.all())
+    user = django_filters.ModelChoiceFilter(queryset=User.objects.all())
     search = django_filters.CharFilter(method='filter_by_search', label='Search')
 
     class Meta:

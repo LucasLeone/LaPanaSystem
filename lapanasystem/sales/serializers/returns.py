@@ -12,6 +12,7 @@ from lapanasystem.customers.models import Customer
 # Serializers
 from lapanasystem.products.serializers import ProductSerializer
 from lapanasystem.customers.serializers import CustomerSerializer
+from lapanasystem.users.serializers import UserSerializer
 
 # Utilities
 from decimal import Decimal
@@ -64,8 +65,9 @@ class ReturnSerializer(serializers.ModelSerializer):
     """Serializer for the Return model."""
 
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    user_details = UserSerializer(source="user", read_only=True)
     customer = serializers.PrimaryKeyRelatedField(
-        queryset=Customer.objects.all(), required=True
+        queryset=Customer.objects.all(), required=True, write_only=True
     )
     customer_details = CustomerSerializer(source="customer", read_only=True)
     return_details = ReturnDetailSerializer(many=True, required=False)
@@ -76,6 +78,7 @@ class ReturnSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "user",
+            "user_details",
             "customer",
             "customer_details",
             "date",
