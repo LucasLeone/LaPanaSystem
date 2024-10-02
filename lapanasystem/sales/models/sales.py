@@ -48,6 +48,7 @@ class Sale(LPSModel):
     payment_method = models.CharField(
         max_length=16, choices=SALE_PAYMENT_METHOD_CHOICES, default=EFECTIVO
     )
+    needs_delivery = models.BooleanField(default=False)
 
     def __str__(self):
         """Return sale."""

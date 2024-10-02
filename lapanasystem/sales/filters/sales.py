@@ -20,6 +20,7 @@ class SaleFilter(django_filters.FilterSet):
     end_date = django_filters.DateFilter(field_name="date", lookup_expr='lte')
     date = django_filters.DateFilter(field_name="date", method='filter_by_date')
     state = django_filters.CharFilter(method='filter_by_state')
+    needs_delivery = django_filters.BooleanFilter()
 
     class Meta:
         model = Sale

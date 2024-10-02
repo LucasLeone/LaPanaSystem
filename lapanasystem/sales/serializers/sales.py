@@ -118,7 +118,6 @@ class SaleSerializer(serializers.ModelSerializer):
     sale_details = SaleDetailSerializer(many=True, required=False)
     state_changes = StateChangeSerializer(many=True, read_only=True)
     state = serializers.SerializerMethodField()
-    needs_delivery = serializers.BooleanField(write_only=True, default=False)
 
     class Meta:
         model = Sale
@@ -170,7 +169,8 @@ class SaleSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         """Create a sale."""
         sale_details_data = validated_data.pop("sale_details", [])
-        needs_delivery = validated_data.pop("needs_delivery", False)
+        needs_delivery = validated_data.get("needs_delivery", False)
+
         sale = Sale.objects.create(**validated_data)
 
         if sale_details_data:
