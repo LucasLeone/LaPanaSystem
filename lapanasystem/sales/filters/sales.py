@@ -7,6 +7,7 @@ from django.db.models import OuterRef, Subquery
 # Models
 from lapanasystem.sales.models import Sale, StateChange
 from lapanasystem.customers.models import Customer
+from lapanasystem.users.models import User
 
 # Utilities
 from django.utils import timezone
@@ -23,6 +24,7 @@ class SaleFilter(django_filters.FilterSet):
     state = django_filters.CharFilter(method='filter_by_state')
     needs_delivery = django_filters.BooleanFilter()
     customer = django_filters.ModelChoiceFilter(queryset=Customer.objects.all())
+    user = django_filters.ModelChoiceFilter(queryset=User.objects.all())
 
     class Meta:
         model = Sale
