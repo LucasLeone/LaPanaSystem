@@ -1,5 +1,8 @@
 """Customers views."""
 
+# Django
+from django.core.cache import cache
+
 # Django REST Framework
 from rest_framework import status
 from rest_framework.response import Response
@@ -72,7 +75,33 @@ class CustomerViewSet(ModelViewSet):
         """Handle soft delete with confirmation message."""
         instance = self.get_object()
         self.perform_destroy(instance)
+        cache.delete(f"customer_{instance.id}")
         return Response(
             data={"message": "Customer deleted successfully."},
             status=status.HTTP_200_OK,
         )
+
+    def list(self, request, *args, **kwargs):
+        """Cache the customer list."""
+        cache_key = "customers_list"
+        cached_data = cache.get(cache_key)
+
+        if cached_data:
+            return Response(cached_data, status=status.HTTP_200_OK)
+
+        response = super().list(request, *args, **kwargs)
+        cache.set(cache_key, response.data, timeout=86400)
+        return response
+
+    def retrieve(self, request, *args, **kwargs):
+        """Cache individual customer retrieval."""
+        customer_id = kwargs.get("pk")
+        cache_key = f"customer_{customer_id}"
+        cached_data = cache.get(cache_key)
+
+        if cached_data:
+            return Response(cached_data, status=status.HTTP_200_OK)
+
+        response = super().retrieve(request, *args, **kwargs)
+        cache.set(cache_key, response.data, timeout=86400)
+        return response
