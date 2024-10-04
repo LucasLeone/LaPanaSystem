@@ -27,25 +27,3 @@ def change_state_to_ready_for_delivery(sale_id):
             last_state_change.save()
 
         StateChange.objects.create(sale=sale, state=StateChange.PENDIENTE_ENTREGA)
-
-
-@shared_task(name='check_sales_for_delivery')
-def check_sales_for_delivery():
-    """Check all sales with today's date and change their state to 'Pending for delivery'."""
-    today = date.today()
-
-    last_state_subquery = StateChange.objects.filter(
-        sale=OuterRef('pk')
-    ).order_by('-start_date').values('state')[:1]
-
-    sales = Sale.objects.filter(
-        date__date=today,
-        is_active=True
-    ).annotate(
-        last_state=Subquery(last_state_subquery)
-    ).filter(
-        last_state=StateChange.CREADA
-    )
-
-    for sale in sales:
-        change_state_to_ready_for_delivery.delay(sale.id)

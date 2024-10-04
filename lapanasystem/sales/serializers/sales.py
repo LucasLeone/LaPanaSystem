@@ -2,6 +2,7 @@
 
 # Django
 from django.db import transaction
+from django.utils import timezone
 
 # Django REST Framework
 from rest_framework import serializers
@@ -15,6 +16,9 @@ from lapanasystem.customers.models import Customer
 from lapanasystem.products.serializers import ProductSerializer
 from lapanasystem.customers.serializers import CustomerSerializer
 from lapanasystem.users.serializers import UserSerializer
+
+# Tasks
+from lapanasystem.sales.tasks import change_state_to_ready_for_delivery
 
 # Utilities
 from decimal import Decimal
@@ -187,6 +191,8 @@ class SaleSerializer(serializers.ModelSerializer):
         if sale_details_data and needs_delivery is True:
             sale.calculate_total()
             StateChange.objects.create(sale=sale, state=StateChange.CREADA)
+            eta = sale.date if timezone.is_aware(sale.date) else timezone.make_aware(sale.date)
+            change_state_to_ready_for_delivery.apply_async([sale.id], eta=eta)
         elif sale_details_data and needs_delivery is False:
             sale.calculate_total()
             StateChange.objects.create(sale=sale, state=StateChange.COBRADA)
