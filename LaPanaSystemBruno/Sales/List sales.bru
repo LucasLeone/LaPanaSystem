@@ -5,21 +5,21 @@ meta {
 }
 
 get {
-  url: http://localhost:8000/api/v1/sales/?state=pendiente_entrega&date=2024-09-13&search=test&ordering=-total&sale_type=mayorista&start_date=2024-09-01&end_date=2024-09-30&min_total=25000&max_total=25000
+  url: http://localhost:8000/api/v1/sales/
   body: none
   auth: none
 }
 
 params:query {
-  state: pendiente_entrega
-  date: 2024-09-13
-  search: test
-  ordering: -total
-  sale_type: mayorista
-  start_date: 2024-09-01
-  end_date: 2024-09-30
-  min_total: 25000
-  max_total: 25000
+  ~state: pendiente_entrega
+  ~date: 2024-09-13
+  ~search: test
+  ~ordering: -total
+  ~sale_type: mayorista
+  ~start_date: 2024-09-01
+  ~end_date: 2024-09-30
+  ~min_total: 25000
+  ~max_total: 25000
 }
 
 headers {

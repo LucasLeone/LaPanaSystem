@@ -103,3 +103,28 @@ class SupplierViewSet(ModelViewSet):
         response = super().retrieve(request, *args, **kwargs)
         cache.set(cache_key, response.data, timeout=86400)
         return response
+
+    def create(self, request, *args, **kwargs):
+        """Override create to handle caching."""
+        response = super().create(request, *args, **kwargs)
+        cache.delete("suppliers_list")
+        return response
+
+    def update(self, request, *args, **kwargs):
+        """Override update to handle caching."""
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        cache.delete("suppliers_list")
+        cache.delete(f"supplier_{instance.id}")
+
+        return Response(serializer.data)
+
+    def partial_update(self, request, *args, **kwargs):
+        """Override partial_update to handle caching."""
+        kwargs['partial'] = True
+        return self.update(request, *args, **kwargs)

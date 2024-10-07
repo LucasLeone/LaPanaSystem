@@ -122,6 +122,7 @@ class UserViewSet(
         data = UserSerializer(user).data
 
         cache.delete("users_list")
+        cache.set(f"user_{user.username}", data, timeout=86400)
 
         return Response(data, status=status.HTTP_201_CREATED)
 
@@ -181,12 +182,25 @@ class UserViewSet(
                 data={"message": "User is inactive."},
             )
 
-        serializer = UserSerializer(user, data=request.data, partial=True)
+        old_username = user.username
+
+        serializer = self.get_serializer(user, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        user = serializer.save()
         data = serializer.data
 
+        new_username = user.username
+
         cache.delete("users_list")
-        cache.delete(f"user_{user.username}")
+        cache.delete(f"user_{old_username}")
+        if old_username != new_username:
+            cache.delete(f"user_{new_username}")
+
+        cache.set(f"user_{new_username}", data, timeout=86400)
 
         return Response(data, status=status.HTTP_200_OK)
+
+    def partial_update(self, request, *args, **kwargs):
+        """Partial update user with cache invalidation."""
+        kwargs['partial'] = True
+        return self.update(request, *args, **kwargs)

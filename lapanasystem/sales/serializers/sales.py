@@ -34,7 +34,7 @@ class SaleDetailSerializer(serializers.ModelSerializer):
     product_details = ProductSerializer(source="product", read_only=True)
 
     quantity = serializers.DecimalField(
-        min_value=Decimal('0.001'), max_digits=10, decimal_places=3
+        min_value=Decimal("0.001"), max_digits=10, decimal_places=3
     )
     subtotal = serializers.SerializerMethodField()
 
@@ -81,7 +81,7 @@ class SaleDetailSerializer(serializers.ModelSerializer):
         product = validated_data["product"]
 
         price = self._get_price(sale, product)
-        validated_data['price'] = price
+        validated_data["price"] = price
 
         return SaleDetail.objects.create(sale=sale, **validated_data)
 
@@ -116,7 +116,10 @@ class SaleSerializer(serializers.ModelSerializer):
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
     user_details = UserSerializer(source="user", read_only=True)
     customer = serializers.PrimaryKeyRelatedField(
-        queryset=Customer.objects.all(), required=False, write_only=True
+        queryset=Customer.objects.all(),
+        required=False,
+        write_only=True,
+        allow_null=True,
     )
     customer_details = CustomerSerializer(source="customer", read_only=True)
     sale_details = SaleDetailSerializer(many=True, required=False)
@@ -191,7 +194,11 @@ class SaleSerializer(serializers.ModelSerializer):
         if sale_details_data and needs_delivery is True:
             sale.calculate_total()
             StateChange.objects.create(sale=sale, state=StateChange.CREADA)
-            eta = sale.date if timezone.is_aware(sale.date) else timezone.make_aware(sale.date)
+            eta = (
+                sale.date
+                if timezone.is_aware(sale.date)
+                else timezone.make_aware(sale.date)
+            )
             change_state_to_ready_for_delivery.apply_async([sale.id], eta=eta)
         elif sale_details_data and needs_delivery is False:
             sale.calculate_total()
@@ -211,6 +218,9 @@ class SaleSerializer(serializers.ModelSerializer):
         new_sale_type = validated_data.get("sale_type", sale.sale_type)
         if new_sale_type != sale.sale_type:
             sale_type_changed = True
+
+        if 'customer' not in self.initial_data:
+            validated_data['customer'] = None
 
         for attr, value in validated_data.items():
             setattr(sale, attr, value)

@@ -1,15 +1,22 @@
 meta {
   name: Update sale without details
   type: http
-  seq: 10
+  seq: 7
 }
 
-get {
-  url: http://localhost:8000/api/v1/sales/186/
-  body: none
+patch {
+  url: http://localhost:8000/api/v1/sales/202/
+  body: json
   auth: none
 }
 
 headers {
   Authorization: Token {{Token}}
+}
+
+body:json {
+  {
+    // "customer": 6,
+    "total": 8000000
+  }
 }
