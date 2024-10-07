@@ -1,5 +1,8 @@
 """Users views."""
 
+# Django
+from django.core.cache import cache
+
 # Django REST Framework
 from rest_framework import mixins
 from rest_framework import status
@@ -117,6 +120,9 @@ class UserViewSet(
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         data = UserSerializer(user).data
+
+        cache.delete("users_list")
+
         return Response(data, status=status.HTTP_201_CREATED)
 
     def destroy(self, request, *args, **kwargs):
@@ -124,19 +130,50 @@ class UserViewSet(
         user = self.get_object()
         user.is_active = False
         user.save()
+
+        cache.delete("users_list")
+        cache.delete(f"user_{user.username}")
+
         return Response(
             status=status.HTTP_204_NO_CONTENT,
             data={"message": "User deleted successfully."},
         )
 
     def list(self, request, *args, **kwargs):
-        """List all users."""
-        users = self.get_queryset()
-        data = UserSerializer(users, many=True).data
+        """List all users with caching."""
+        cache_key = "users_list"
+        cached_data = cache.get(cache_key)
+
+        if cached_data:
+            return Response(cached_data, status=status.HTTP_200_OK)
+
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        data = serializer.data
+
+        cache.set(cache_key, data, timeout=86400)
+
+        return Response(data, status=status.HTTP_200_OK)
+
+    def retrieve(self, request, *args, **kwargs):
+        """Retrieve a single user with caching."""
+        username = kwargs.get("username")
+        cache_key = f"user_{username}"
+        cached_data = cache.get(cache_key)
+
+        if cached_data:
+            return Response(cached_data, status=status.HTTP_200_OK)
+
+        user = self.get_object()
+        serializer = self.get_serializer(user)
+        data = serializer.data
+
+        cache.set(cache_key, data, timeout=86400)
+
         return Response(data, status=status.HTTP_200_OK)
 
     def update(self, request, *args, **kwargs):
-        """Update user."""
+        """Update user with cache invalidation."""
         user = self.get_object()
         if not user.is_active:
             return Response(
@@ -148,4 +185,8 @@ class UserViewSet(
         serializer.is_valid(raise_exception=True)
         serializer.save()
         data = serializer.data
+
+        cache.delete("users_list")
+        cache.delete(f"user_{user.username}")
+
         return Response(data, status=status.HTTP_200_OK)

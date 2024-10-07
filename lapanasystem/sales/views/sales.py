@@ -1,5 +1,8 @@
 """Sales views."""
 
+# Django
+from django.core.cache import cache
+
 # Django REST Framework
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -94,10 +97,37 @@ class SaleViewSet(ModelViewSet):
         """Handle soft delete with confirmation message."""
         instance = self.get_object()
         self.perform_destroy(instance)
+        cache.delete("sales_list")
+        cache.delete(f"sale_{instance.id}")
         return Response(
             {"message": "Sale deleted successfully."},
             status=status.HTTP_204_NO_CONTENT,
         )
+
+    def list(self, request, *args, **kwargs):
+        """Cache the sale list."""
+        cache_key = "sales_list"
+        cached_data = cache.get(cache_key)
+
+        if cached_data:
+            return Response(cached_data, status=status.HTTP_200_OK)
+
+        response = super().list(request, *args, **kwargs)
+        cache.set(cache_key, response.data, timeout=86400)
+        return response
+
+    def retrieve(self, request, *args, **kwargs):
+        """Cache individual sale retrieval."""
+        sale_id = kwargs.get("pk")
+        cache_key = f"sale_{sale_id}"
+        cached_data = cache.get(cache_key)
+
+        if cached_data:
+            return Response(cached_data, status=status.HTTP_200_OK)
+
+        response = super().retrieve(request, *args, **kwargs)
+        cache.set(cache_key, response.data, timeout=86400)
+        return response
 
     @action(detail=True, methods=["post"], url_path="mark-as-delivered")
     def mark_as_delivered(self, request, *args, **kwargs):
@@ -132,6 +162,9 @@ class SaleViewSet(ModelViewSet):
         last_state_change.save()
 
         StateChange.objects.create(sale=instance, state=StateChange.ENTREGADA)
+
+        cache.delete("sales_list")
+        cache.delete(f"sale_{instance.id}")
 
         return Response(
             {"message": "Venta marcada como entregada."},
@@ -168,6 +201,9 @@ class SaleViewSet(ModelViewSet):
 
         StateChange.objects.create(sale=instance, state=StateChange.COBRADA)
 
+        cache.delete("sales_list")
+        cache.delete(f"sale_{instance.id}")
+
         return Response(
             {"message": "Venta marcada como cobrada."},
             status=status.HTTP_200_OK,
@@ -202,6 +238,9 @@ class SaleViewSet(ModelViewSet):
         last_state_change.save()
 
         StateChange.objects.create(sale=instance, state=StateChange.CANCELADA)
+
+        cache.delete("sales_list")
+        cache.delete(f"sale_{instance.id}")
 
         return Response(
             {"message": "Venta marcada como cancelada."},

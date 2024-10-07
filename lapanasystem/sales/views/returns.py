@@ -1,5 +1,8 @@
 """Return views."""
 
+# Django
+from django.core.cache import cache
+
 # Django REST Framework
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -72,7 +75,34 @@ class ReturnViewSet(ModelViewSet):
         """Handle soft delete with a confirmation message."""
         instance = self.get_object()
         self.perform_destroy(instance)
+        cache.delete("returns_list")
+        cache.delete(f"return_{instance.id}")
         return Response(
             {"message": "Return deleted successfully."},
             status=status.HTTP_204_NO_CONTENT,
         )
+
+    def list(self, request, *args, **kwargs):
+        """Cache the return list."""
+        cache_key = "returns_list"
+        cached_data = cache.get(cache_key)
+
+        if cached_data:
+            return Response(cached_data, status=status.HTTP_200_OK)
+
+        response = super().list(request, *args, **kwargs)
+        cache.set(cache_key, response.data, timeout=86400)
+        return response
+
+    def retrieve(self, request, *args, **kwargs):
+        """Cache individual return retrieval."""
+        return_id = kwargs.get("pk")
+        cache_key = f"return_{return_id}"
+        cached_data = cache.get(cache_key)
+
+        if cached_data:
+            return Response(cached_data, status=status.HTTP_200_OK)
+
+        response = super().retrieve(request, *args, **kwargs)
+        cache.set(cache_key, response.data, timeout=86400)
+        return response

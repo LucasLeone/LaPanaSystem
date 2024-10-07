@@ -1,21 +1,21 @@
 """Expenses views."""
 
+# Django
+from django.core.cache import cache
+
 # Django REST Framework
 from rest_framework import status
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 
 # Models
-from lapanasystem.expenses.models import Expense
-from lapanasystem.expenses.models import ExpenseCategory
+from lapanasystem.expenses.models import Expense, ExpenseCategory
 
 # Serializers
-from lapanasystem.expenses.serializers import CategorySerializer
-from lapanasystem.expenses.serializers import ExpenseSerializer
+from lapanasystem.expenses.serializers import CategorySerializer, ExpenseSerializer
 
 # Permissions
-from lapanasystem.users.permissions import IsAdmin
-from lapanasystem.users.permissions import IsSeller
+from lapanasystem.users.permissions import IsAdmin, IsSeller
 from rest_framework.permissions import IsAuthenticated
 
 # Filters
@@ -74,10 +74,38 @@ class ExpenseViewSet(ModelViewSet):
         """Handle soft delete with confirmation message."""
         instance = self.get_object()
         self.perform_destroy(instance)
+        # Invalidate related caches
+        cache.delete("expenses_list")
+        cache.delete(f"expense_{instance.id}")
         return Response(
             data={"message": "Expense deleted successfully."},
-            status=status.HTTP_204_NO_CONTENT,
+            status=status.HTTP_200_OK,
         )
+
+    def list(self, request, *args, **kwargs):
+        """Cache the expense list."""
+        cache_key = "expenses_list"
+        cached_data = cache.get(cache_key)
+
+        if cached_data:
+            return Response(cached_data, status=status.HTTP_200_OK)
+
+        response = super().list(request, *args, **kwargs)
+        cache.set(cache_key, response.data, timeout=86400)
+        return response
+
+    def retrieve(self, request, *args, **kwargs):
+        """Cache individual expense retrieval."""
+        expense_id = kwargs.get("id")
+        cache_key = f"expense_{expense_id}"
+        cached_data = cache.get(cache_key)
+
+        if cached_data:
+            return Response(cached_data, status=status.HTTP_200_OK)
+
+        response = super().retrieve(request, *args, **kwargs)
+        cache.set(cache_key, response.data, timeout=86400)
+        return response
 
 
 class CategoryViewSet(ModelViewSet):
@@ -114,7 +142,35 @@ class CategoryViewSet(ModelViewSet):
         """Handle soft delete with confirmation message."""
         instance = self.get_object()
         self.perform_destroy(instance)
+        # Invalidate related caches
+        cache.delete("categories_list")
+        cache.delete(f"category_{instance.id}")
         return Response(
             data={"message": "Category deleted successfully."},
             status=status.HTTP_200_OK,
         )
+
+    def list(self, request, *args, **kwargs):
+        """Cache the category list."""
+        cache_key = "categories_list"
+        cached_data = cache.get(cache_key)
+
+        if cached_data:
+            return Response(cached_data, status=status.HTTP_200_OK)
+
+        response = super().list(request, *args, **kwargs)
+        cache.set(cache_key, response.data, timeout=86400)
+        return response
+
+    def retrieve(self, request, *args, **kwargs):
+        """Cache individual category retrieval."""
+        category_id = kwargs.get("id")
+        cache_key = f"category_{category_id}"
+        cached_data = cache.get(cache_key)
+
+        if cached_data:
+            return Response(cached_data, status=status.HTTP_200_OK)
+
+        response = super().retrieve(request, *args, **kwargs)
+        cache.set(cache_key, response.data, timeout=86400)
+        return response

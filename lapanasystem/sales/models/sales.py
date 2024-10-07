@@ -33,12 +33,14 @@ class Sale(LPSModel):
     ]
 
     user = models.ForeignKey("users.User", on_delete=models.RESTRICT)
-    customer = models.ForeignKey("customers.Customer", on_delete=models.RESTRICT)
+    customer = models.ForeignKey(
+        "customers.Customer", on_delete=models.RESTRICT, blank=True, null=True
+    )
     date = models.DateTimeField(blank=True, null=True)
     total = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.00'))],
+        validators=[MinValueValidator(Decimal("0.00"))],
         blank=True,
         null=True,
     )
@@ -77,17 +79,19 @@ class Sale(LPSModel):
 class SaleDetail(LPSModel):
     """Sale detail model."""
 
-    sale = models.ForeignKey("Sale", on_delete=models.CASCADE, related_name="sale_details")
+    sale = models.ForeignKey(
+        "Sale", on_delete=models.CASCADE, related_name="sale_details"
+    )
     product = models.ForeignKey("products.Product", on_delete=models.RESTRICT)
     quantity = models.DecimalField(
         max_digits=10,
         decimal_places=3,
-        validators=[MinValueValidator(Decimal('0.001'))],
+        validators=[MinValueValidator(Decimal("0.001"))],
     )
     price = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.00'))],
+        validators=[MinValueValidator(Decimal("0.00"))],
         editable=False,
     )
 
