@@ -1,8 +1,5 @@
 """Sales views."""
 
-# Django
-from django.core.cache import cache
-
 # Django REST Framework
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -88,12 +85,6 @@ class SaleViewSet(ModelViewSet):
             permissions = [IsAuthenticated, IsAdmin]
         return [p() for p in permissions]
 
-    def create(self, request, *args, **kwargs):
-        """Override create to handle caching."""
-        response = super().create(request, *args, **kwargs)
-        cache.delete("sales_list")
-        return response
-
     def perform_destroy(self, instance):
         """Disable delete (soft delete)."""
         instance.is_active = False
@@ -103,62 +94,10 @@ class SaleViewSet(ModelViewSet):
         """Handle soft delete with confirmation message."""
         instance = self.get_object()
         self.perform_destroy(instance)
-        cache.delete("sales_list")
-        cache.delete(f"sale_{instance.id}")
         return Response(
             {"message": "Sale deleted successfully."},
             status=status.HTTP_204_NO_CONTENT,
         )
-
-    def list(self, request, *args, **kwargs):
-        """Cache the sale list."""
-        cache_key = "sales_list"
-        cached_data = cache.get(cache_key)
-
-        if cached_data:
-            return Response(cached_data, status=status.HTTP_200_OK)
-
-        response = super().list(request, *args, **kwargs)
-        cache.set(cache_key, response.data, timeout=86400)
-        return response
-
-    def retrieve(self, request, *args, **kwargs):
-        """Cache individual sale retrieval."""
-        sale_id = kwargs.get("pk")
-        cache_key = f"sale_{sale_id}"
-        cached_data = cache.get(cache_key)
-
-        if cached_data:
-            return Response(cached_data, status=status.HTTP_200_OK)
-
-        response = super().retrieve(request, *args, **kwargs)
-        cache.set(cache_key, response.data, timeout=86400)
-        return response
-
-    def perform_update(self, serializer):
-        """Handle cache invalidation and actualización al actualizar una venta."""
-        instance = serializer.save()
-        cache.delete("sales_list")
-        cache.delete(f"sale_{instance.id}")
-        cache_key = f"sale_{instance.id}"
-        data = self.get_serializer(instance).data
-        cache.set(cache_key, data, timeout=86400)
-
-    def update(self, request, *args, **kwargs):
-        """Override update to handle caching."""
-        partial = kwargs.pop('partial', False)
-        instance = self.get_object()
-
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def partial_update(self, request, *args, **kwargs):
-        """Override partial_update to handle caching."""
-        kwargs['partial'] = True
-        return self.update(request, *args, **kwargs)
 
     @action(detail=True, methods=["post"], url_path="mark-as-delivered")
     def mark_as_delivered(self, request, *args, **kwargs):
@@ -193,9 +132,6 @@ class SaleViewSet(ModelViewSet):
         last_state_change.save()
 
         StateChange.objects.create(sale=instance, state=StateChange.ENTREGADA)
-
-        cache.delete("sales_list")
-        cache.delete(f"sale_{instance.id}")
 
         return Response(
             {"message": "Venta marcada como entregada."},
@@ -232,9 +168,6 @@ class SaleViewSet(ModelViewSet):
 
         StateChange.objects.create(sale=instance, state=StateChange.COBRADA)
 
-        cache.delete("sales_list")
-        cache.delete(f"sale_{instance.id}")
-
         return Response(
             {"message": "Venta marcada como cobrada."},
             status=status.HTTP_200_OK,
@@ -269,9 +202,6 @@ class SaleViewSet(ModelViewSet):
         last_state_change.save()
 
         StateChange.objects.create(sale=instance, state=StateChange.CANCELADA)
-
-        cache.delete("sales_list")
-        cache.delete(f"sale_{instance.id}")
 
         return Response(
             {"message": "Venta marcada como cancelada."},

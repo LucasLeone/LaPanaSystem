@@ -1,8 +1,5 @@
 """Users views."""
 
-# Django
-from django.core.cache import cache
-
 # Django REST Framework
 from rest_framework import mixins
 from rest_framework import status
@@ -121,86 +118,18 @@ class UserViewSet(
         user = serializer.save()
         data = UserSerializer(user).data
 
-        cache.delete("users_list")
-        cache.set(f"user_{user.username}", data, timeout=86400)
-
         return Response(data, status=status.HTTP_201_CREATED)
 
+    def perform_destroy(self, instance):
+        """Disable delete (soft delete)."""
+        instance.is_active = False
+        instance.save()
+
     def destroy(self, request, *args, **kwargs):
-        """Soft delete user."""
-        user = self.get_object()
-        user.is_active = False
-        user.save()
-
-        cache.delete("users_list")
-        cache.delete(f"user_{user.username}")
-
+        """Handle soft delete with confirmation message."""
+        instance = self.get_object()
+        self.perform_destroy(instance)
         return Response(
+            {"message": "User deleted successfully."},
             status=status.HTTP_204_NO_CONTENT,
-            data={"message": "User deleted successfully."},
         )
-
-    def list(self, request, *args, **kwargs):
-        """List all users with caching."""
-        cache_key = "users_list"
-        cached_data = cache.get(cache_key)
-
-        if cached_data:
-            return Response(cached_data, status=status.HTTP_200_OK)
-
-        queryset = self.filter_queryset(self.get_queryset())
-        serializer = self.get_serializer(queryset, many=True)
-        data = serializer.data
-
-        cache.set(cache_key, data, timeout=86400)
-
-        return Response(data, status=status.HTTP_200_OK)
-
-    def retrieve(self, request, *args, **kwargs):
-        """Retrieve a single user with caching."""
-        username = kwargs.get("username")
-        cache_key = f"user_{username}"
-        cached_data = cache.get(cache_key)
-
-        if cached_data:
-            return Response(cached_data, status=status.HTTP_200_OK)
-
-        user = self.get_object()
-        serializer = self.get_serializer(user)
-        data = serializer.data
-
-        cache.set(cache_key, data, timeout=86400)
-
-        return Response(data, status=status.HTTP_200_OK)
-
-    def update(self, request, *args, **kwargs):
-        """Update user with cache invalidation."""
-        user = self.get_object()
-        if not user.is_active:
-            return Response(
-                status=status.HTTP_400_BAD_REQUEST,
-                data={"message": "User is inactive."},
-            )
-
-        old_username = user.username
-
-        serializer = self.get_serializer(user, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        data = serializer.data
-
-        new_username = user.username
-
-        cache.delete("users_list")
-        cache.delete(f"user_{old_username}")
-        if old_username != new_username:
-            cache.delete(f"user_{new_username}")
-
-        cache.set(f"user_{new_username}", data, timeout=86400)
-
-        return Response(data, status=status.HTTP_200_OK)
-
-    def partial_update(self, request, *args, **kwargs):
-        """Partial update user with cache invalidation."""
-        kwargs['partial'] = True
-        return self.update(request, *args, **kwargs)

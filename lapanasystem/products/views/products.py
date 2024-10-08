@@ -118,7 +118,7 @@ class ProductViewSet(ModelViewSet):
 
     def update(self, request, *args, **kwargs):
         """Override update to handle caching."""
-        partial = kwargs.pop('partial', False)
+        partial = kwargs.pop("partial", False)
         instance = self.get_object()
         old_slug = instance.slug
 
@@ -135,7 +135,7 @@ class ProductViewSet(ModelViewSet):
 
     def partial_update(self, request, *args, **kwargs):
         """Override partial_update to handle caching."""
-        kwargs['partial'] = True
+        kwargs["partial"] = True
         return self.update(request, *args, **kwargs)
 
 
@@ -206,7 +206,7 @@ class ProductBrandViewSet(ModelViewSet):
 
     def update(self, request, *args, **kwargs):
         """Override update to handle caching."""
-        partial = kwargs.pop('partial', False)
+        partial = kwargs.pop("partial", False)
         instance = self.get_object()
 
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
@@ -220,7 +220,7 @@ class ProductBrandViewSet(ModelViewSet):
 
     def partial_update(self, request, *args, **kwargs):
         """Override partial_update to handle caching."""
-        kwargs['partial'] = True
+        kwargs["partial"] = True
         return self.update(request, *args, **kwargs)
 
 
@@ -251,60 +251,7 @@ class ProductCategoryViewSet(ModelViewSet):
         """Handle soft delete with confirmation message."""
         instance = self.get_object()
         self.perform_destroy(instance)
-        # Invalidate related caches
-        cache.delete("product_categories_list")
-        cache.delete(f"product_category_{instance.id}")
         return Response(
-            {"message": "Product category deleted successfully."},
-            status=status.HTTP_200_OK,
+            {"message": "Product deleted successfully."},
+            status=status.HTTP_204_NO_CONTENT,
         )
-
-    def list(self, request, *args, **kwargs):
-        """Cache the product category list."""
-        cache_key = "product_categories_list"
-        cached_data = cache.get(cache_key)
-
-        if cached_data:
-            return Response(cached_data, status=status.HTTP_200_OK)
-
-        response = super().list(request, *args, **kwargs)
-        cache.set(cache_key, response.data, timeout=86400)
-        return response
-
-    def retrieve(self, request, *args, **kwargs):
-        """Cache individual product category retrieval."""
-        category_id = kwargs.get("id")
-        cache_key = f"product_category_{category_id}"
-        cached_data = cache.get(cache_key)
-
-        if cached_data:
-            return Response(cached_data, status=status.HTTP_200_OK)
-
-        response = super().retrieve(request, *args, **kwargs)
-        cache.set(cache_key, response.data, timeout=86400)
-        return response
-
-    def create(self, request, *args, **kwargs):
-        """Override create to handle caching."""
-        response = super().create(request, *args, **kwargs)
-        cache.delete("product_categories_list")
-        return response
-
-    def update(self, request, *args, **kwargs):
-        """Override update to handle caching."""
-        partial = kwargs.pop('partial', False)
-        instance = self.get_object()
-
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-
-        cache.delete("product_categories_list")
-        cache.delete(f"product_category_{instance.id}")
-
-        return Response(serializer.data)
-
-    def partial_update(self, request, *args, **kwargs):
-        """Override partial_update to handle caching."""
-        kwargs['partial'] = True
-        return self.update(request, *args, **kwargs)
