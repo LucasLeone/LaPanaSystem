@@ -25,6 +25,7 @@ class SaleFilter(django_filters.FilterSet):
     needs_delivery = django_filters.BooleanFilter()
     customer = django_filters.ModelChoiceFilter(queryset=Customer.objects.all())
     user = django_filters.ModelChoiceFilter(queryset=User.objects.all())
+    payment_method = django_filters.CharFilter(method='filter_by_payment_method')
 
     class Meta:
         model = Sale
@@ -45,3 +46,7 @@ class SaleFilter(django_filters.FilterSet):
         return queryset.annotate(
             current_state=Subquery(last_state_change.values('state')[:1])
         ).filter(current_state=value)
+
+    def filter_by_payment_method(self, queryset, name, value):
+        """Filter sales by payment method."""
+        return queryset.filter(payment_method=value)
