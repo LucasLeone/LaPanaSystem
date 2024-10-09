@@ -11,7 +11,7 @@ from lapanasystem.utils.models import LPSModel
 class Supplier(LPSModel):
     """Supplier model."""
 
-    name = models.CharField(max_length=50)
+    name = models.CharField(max_length=50, unique=True)
     phone_regex = RegexValidator(
         regex=r"\+?1?\d{9,15}$",
         message=(
@@ -20,7 +20,7 @@ class Supplier(LPSModel):
         ),
     )
     phone_number = models.CharField(validators=[phone_regex], max_length=17)
-    email = models.EmailField(max_length=100, blank=True)
+    email = models.EmailField(max_length=100, blank=True, unique=True)
     address = models.CharField(max_length=255, blank=True)
 
     is_active = models.BooleanField(default=True)

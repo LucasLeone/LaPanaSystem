@@ -26,6 +26,18 @@ class CategorySerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id"]
 
+    def validate_name(self, value):
+        """Validate name."""
+        queryset = ExpenseCategory.objects.filter(name__iexact=value)
+
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+
+        if queryset.exists():
+            raise serializers.ValidationError("Ya existe una categoría con este nombre.")
+
+        return value
+
 
 class ExpenseSerializer(serializers.ModelSerializer):
     """Expense model serializer."""
