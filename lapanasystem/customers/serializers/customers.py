@@ -16,11 +16,10 @@ class CustomerSerializer(serializers.ModelSerializer):
         model = Customer
         fields = ("id", "name", "email", "phone_number", "address", "customer_type")
         read_only_fields = ("id",)
-        unique_together = ("email", "is_active")
 
     def validate_email(self, value):
         """Normalize email to lowercase."""
-        return value.lower()
+        return value.lower() if value else None
 
     def validate(self, data):
         """Add any cross-field validations here."""

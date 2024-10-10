@@ -1,0 +1,48 @@
+meta {
+  name: Statistics
+  type: http
+  seq: 11
+}
+
+get {
+  url: http://localhost:8000/api/v1/sales/?limit=100
+  body: none
+  auth: none
+}
+
+params:query {
+  limit: 100
+  ~ordering: -total
+  ~offset: 20
+  ~state: pendiente_entrega
+  ~date: 2024-10-08
+  ~search: asdasd
+  ~sale_type: minorista
+  ~start_date: 2024-09-01
+  ~end_date: 2024-09-30
+  ~min_total: 25000
+  ~max_total: 25000
+  ~payment_method: efectivo
+}
+
+headers {
+  Authorization: Token {{Token}}
+}
+
+body:json {
+  {
+    "client": 1,
+    "sale_type": "mayorista",
+    "sale_details": [
+      {
+        "product": 1,
+        "quantity": 5
+      },
+      {
+        "product": 2,
+        "quantity": 3
+      }
+    ]
+  }
+
+}
