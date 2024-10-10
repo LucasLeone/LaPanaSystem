@@ -28,7 +28,7 @@ class CategorySerializer(serializers.ModelSerializer):
 
     def validate_name(self, value):
         """Validate name."""
-        queryset = ExpenseCategory.objects.filter(name__iexact=value)
+        queryset = ExpenseCategory.objects.filter(name__iexact=value, is_active=True)
 
         if self.instance:
             queryset = queryset.exclude(pk=self.instance.pk)

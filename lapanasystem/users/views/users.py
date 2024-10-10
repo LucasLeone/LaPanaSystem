@@ -65,7 +65,7 @@ class UserViewSet(
     lookup_field = "username"
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields = ["username", "email"]
-    ordering_fields = ["username", "email"]
+    ordering_fields = ["username", "email", "first_name", "last_name"]
 
     def get_permissions(self):
         """Assign permissions based on action."""

@@ -25,7 +25,7 @@ class SupplierSerializer(serializers.ModelSerializer):
 
     def validate_name(self, value):
         """Validate name."""
-        queryset = Supplier.objects.filter(name__iexact=value)
+        queryset = Supplier.objects.filter(name__iexact=value, is_active=True)
 
         if self.instance:
             queryset = queryset.exclude(pk=self.instance.pk)

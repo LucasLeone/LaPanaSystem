@@ -21,7 +21,7 @@ class ProductCategorySerializer(serializers.ModelSerializer):
 
     def validate_name(self, value):
         """Validate name."""
-        queryset = ProductCategory.objects.filter(name__iexact=value)
+        queryset = ProductCategory.objects.filter(name__iexact=value, is_active=True)
 
         if self.instance:
             queryset = queryset.exclude(pk=self.instance.pk)
@@ -41,7 +41,7 @@ class ProductBrandSerializer(serializers.ModelSerializer):
 
     def validate_name(self, value):
         """Validate name."""
-        queryset = ProductBrand.objects.filter(name__iexact=value)
+        queryset = ProductBrand.objects.filter(name__iexact=value, is_active=True)
 
         if self.instance:
             queryset = queryset.exclude(pk=self.instance.pk)
