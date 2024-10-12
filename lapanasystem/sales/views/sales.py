@@ -3,7 +3,8 @@
 # Django
 from decimal import Decimal
 from django.utils import timezone
-from django.db.models import Sum, OuterRef, Subquery
+from django.db.models import Sum, OuterRef, Subquery, Count
+from django.db.models.functions import TruncDate
 from django.shortcuts import get_object_or_404
 
 # Django REST Framework
@@ -243,44 +244,44 @@ class SaleViewSet(ModelViewSet):
             end_of_today = timezone.make_aware(datetime.combine(today, datetime.max.time()), current_timezone)
 
             # Inicio y fin de la semana (lunes a domingo)
-            start_of_week = start_of_today - timedelta(days=start_of_today.weekday())
-            end_of_week = start_of_week + timedelta(days=6, hours=23, minutes=59, seconds=59)
+            start_of_week = timezone.make_aware(datetime.combine(today - timedelta(days=today.weekday()), datetime.min.time()), current_timezone)
+            end_of_week = timezone.make_aware(datetime.combine(start_of_week.date() + timedelta(days=6), datetime.max.time()), current_timezone)
 
             # Inicio y fin del mes
-            start_of_month = today.replace(day=1)
-            # Calcula el último día del mes
+            start_of_month = timezone.make_aware(datetime.combine(today.replace(day=1), datetime.min.time()), current_timezone)
             if today.month == 12:
                 last_day_of_month = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
             else:
                 last_day_of_month = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
-            start_of_month_dt = timezone.make_aware(datetime.combine(start_of_month, datetime.min.time()), current_timezone)
-            end_of_month_dt = timezone.make_aware(datetime.combine(last_day_of_month, datetime.max.time()), current_timezone)
+            end_of_month = timezone.make_aware(datetime.combine(last_day_of_month, datetime.max.time()), current_timezone)
 
             return {
                 "today": {"start": start_of_today, "end": end_of_today},
                 "week": {"start": start_of_week, "end": end_of_week},
-                "month": {"start": start_of_month_dt, "end": end_of_month_dt},
+                "month": {"start": start_of_month, "end": end_of_month},
             }
 
         date_ranges = get_date_ranges()
 
-        # Parse custom date range if provided
+        # Parse custom date range si se proporciona
         custom_start = request.query_params.get('start_date')
         custom_end = request.query_params.get('end_date')
 
         if custom_start and custom_end:
             try:
                 # Parse fechas sin zona horaria
-                custom_start_dt_naive = datetime.strptime(custom_start, "%Y-%m-%d")
-                custom_end_dt_naive = datetime.strptime(custom_end, "%Y-%m-%d")
+                custom_start_date = datetime.strptime(custom_start, "%Y-%m-%d").date()
+                custom_end_date = datetime.strptime(custom_end, "%Y-%m-%d").date()
+                if custom_start_date > custom_end_date:
+                    raise ValidationError("La fecha de inicio no puede ser posterior a la fecha de fin.")
                 # Asigna zona horaria
-                custom_start_dt = timezone.make_aware(datetime.combine(custom_start_dt_naive, datetime.min.time()), timezone.get_current_timezone())
-                custom_end_dt = timezone.make_aware(datetime.combine(custom_end_dt_naive, datetime.max.time()), timezone.get_current_timezone())
+                custom_start_dt = timezone.make_aware(datetime.combine(custom_start_date, datetime.min.time()), timezone.get_current_timezone())
+                custom_end_dt = timezone.make_aware(datetime.combine(custom_end_date, datetime.max.time()), timezone.get_current_timezone())
                 date_ranges["custom"] = {"start": custom_start_dt, "end": custom_end_dt}
             except ValueError:
                 raise ValidationError("Formato de fecha inválido. Use YYYY-MM-DD.")
 
-        # Get product_slug if provided
+        # Obtener product_slug si se proporciona
         product_slug = request.query_params.get('product_slug')
         product = None
         if product_slug:
@@ -297,7 +298,7 @@ class SaleViewSet(ModelViewSet):
             start = range_dates["start"]
             end = range_dates["end"]
 
-            # Anotar cada venta con su último estado y filtrar por 'cobrada'
+            # Filtrar ventas activas dentro del rango y con estado 'COBRADA'
             sales_qs = Sale.objects.filter(
                 date__gte=start,
                 date__lte=end,
@@ -305,24 +306,24 @@ class SaleViewSet(ModelViewSet):
             ).annotate(
                 latest_state=Subquery(latest_state_subquery)
             ).filter(
-                latest_state=StateChange.COBRADA  # Filtrar por estado 'cobrada'
+                latest_state=StateChange.COBRADA
             )
 
             total_sales_count = sales_qs.count()
             total_sales_amount = sales_qs.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
-            # Total returns
+            # Filtrar devoluciones dentro del rango
             returns_qs = Return.objects.filter(date__gte=start, date__lte=end)
             total_returns_amount = returns_qs.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
-            # Net revenue
+            # Ingresos netos
             net_revenue = (total_sales_amount - total_returns_amount).quantize(Decimal('0.01'))
 
-            # Total expenses
+            # Filtrar gastos dentro del rango
             expenses_qs = Expense.objects.filter(date__gte=start, date__lte=end)
             total_expenses = expenses_qs.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
-            # Most sold products
+            # Detalles de ventas para productos más vendidos
             sale_details_qs = SaleDetail.objects.filter(
                 sale__in=sales_qs,
             )
@@ -349,8 +350,7 @@ class SaleViewSet(ModelViewSet):
                     for item in most_sold_products
                 ]
 
-            # Compilar estadísticas para el periodo
-            statistics[period_name] = {
+            period_stats = {
                 "total_sales_count": total_sales_count,
                 "total_sales_amount": str(total_sales_amount),
                 "total_returns_amount": str(total_returns_amount),
@@ -358,12 +358,61 @@ class SaleViewSet(ModelViewSet):
                 "total_expenses": str(total_expenses),
             }
 
+            # Solo agregar 'daily_breakdown' si el periodo no es 'custom'
+            if period_name != "custom":
+                # ====== Agregar Desglose Diario ======
+                # Agrupar ventas por fecha
+                sales_daily = sales_qs.annotate(
+                    date_only=TruncDate('date')
+                ).values('date_only').annotate(
+                    sales_count=Count('id'),
+                    total_sales=Sum('total')
+                ).order_by('date_only')
+
+                # Agrupar devoluciones por fecha
+                returns_daily = returns_qs.annotate(
+                    date_only=TruncDate('date')
+                ).values('date_only').annotate(
+                    total_returns=Sum('total')
+                ).order_by('date_only')
+
+                # Convertir a diccionarios para fácil acceso
+                sales_daily_dict = {item['date_only']: item for item in sales_daily}
+                returns_daily_dict = {item['date_only']: item for item in returns_daily}
+
+                # Generar una lista de fechas en el rango
+                current_date = start.date()
+                end_date = end.date()
+                daily_breakdown = []
+                while current_date <= end_date:
+                    sales_data = sales_daily_dict.get(current_date, {})
+                    returns_data = returns_daily_dict.get(current_date, {})
+                    sales_count = sales_data.get('sales_count', 0)
+                    total_sales = sales_data.get('total_sales', Decimal('0.00'))
+                    total_returns = returns_data.get('total_returns', Decimal('0.00'))
+                    net_collected = (total_sales - total_returns).quantize(Decimal('0.01'))
+
+                    daily_breakdown.append({
+                        "date": current_date.isoformat(),
+                        "sales_count": sales_count,
+                        "total_collected": str(total_sales),
+                        "total_returns": str(total_returns),
+                        "net_collected": str(net_collected),
+                    })
+
+                    current_date += timedelta(days=1)
+
+                # Agregar el desglose diario al periodo
+                period_stats["daily_breakdown"] = daily_breakdown
+
             if product:
-                statistics[period_name]["product_slug"] = product_slug
-                statistics[period_name]["product_name"] = product.name
-                statistics[period_name]["total_quantity_sold"] = str(total_product_sold)
+                period_stats["product_slug"] = product_slug
+                period_stats["product_name"] = product.name
+                period_stats["total_quantity_sold"] = str(total_product_sold)
             else:
-                statistics[period_name]["most_sold_products"] = most_sold_products
+                period_stats["most_sold_products"] = most_sold_products
+
+            statistics[period_name] = period_stats
 
         return Response(
             {"statistics": statistics},

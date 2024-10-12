@@ -5,14 +5,14 @@ meta {
 }
 
 get {
-  url: http://localhost:8000/api/v1/customers/?limit=10&offset=10
+  url: http://localhost:8000/api/v1/customers/
   body: none
   auth: none
 }
 
 params:query {
-  limit: 10
-  offset: 10
+  ~limit: 10
+  ~offset: 10
 }
 
 headers {
