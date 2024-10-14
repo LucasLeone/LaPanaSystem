@@ -84,8 +84,14 @@ class ReturnSerializer(serializers.ModelSerializer):
             "date",
             "total",
             "return_details",
+            "reason",
         ]
-        read_only_fields = ["id", "total", "customer_details"]
+        read_only_fields = [
+            "id",
+            "total",
+            "customer_details",
+            "user_details",
+        ]
 
     @transaction.atomic
     def create(self, validated_data):

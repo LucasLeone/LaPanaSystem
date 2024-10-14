@@ -59,6 +59,6 @@ class ReturnDetail(LPSModel):
         """Return return_order and product.."""
         return f"{self.return_order} - {self.product}"
 
-    def calculate_subtotal(self):
+    def get_subtotal(self):
         """Calculate subtotal."""
         return self.price * self.quantity

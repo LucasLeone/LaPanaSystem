@@ -9,18 +9,7 @@ from lapanasystem.utils.models import LPSModel
 
 
 class Customer(LPSModel):
-    """
-    Customer model.
-
-    A customer is a person or company that buys products from the store.
-
-    Attributes:
-    - name (str): Customer's name.
-    - email (str): Customer's email address.
-    - phone_number (str): Customer's phone number.
-    - address (str): Customer's address.
-    - customer_type (str): Customer's type (minorista or mayorista).
-    """
+    """Customer model."""
 
     MINORISTA = 'minorista'
     MAYORISTA = 'mayorista'
@@ -35,11 +24,13 @@ class Customer(LPSModel):
     phone_regex = RegexValidator(
         regex=r"\+?1?\d{9,15}$",
         message=(
-            "Phone number must be entered in the format: +999999999. "
-            "Up to 15 digits allowed."
+            "El número de teléfono debe tener el formato: +999999999. "
+            "Hasta 15 dígitos permitidos."
         ),
     )
-    phone_number = models.CharField(validators=[phone_regex], max_length=17, blank=True, null=True)
+    phone_number = models.CharField(
+        validators=[phone_regex], max_length=17, blank=True, null=True
+    )
     address = models.CharField('Dirección', max_length=255, blank=True, null=True)
     customer_type = models.CharField(
         'Tipo de cliente',
@@ -49,7 +40,7 @@ class Customer(LPSModel):
     )
 
     def __str__(self):
-        """Return name and email."""
+        """Return name and customer type."""
         return f'{self.name} - ({self.customer_type})'
 
     def save(self, *args, **kwargs):

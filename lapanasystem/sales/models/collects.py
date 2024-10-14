@@ -24,4 +24,4 @@ class Collect(LPSModel):
 
     def __str__(self):
         """Return collect."""
-        return f"{self.customer} - {self.date} - {self.amount}"
+        return f"{self.customer} - {self.date} - {self.total}"

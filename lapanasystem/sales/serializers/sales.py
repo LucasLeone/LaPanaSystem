@@ -199,7 +199,7 @@ class SaleSerializer(serializers.ModelSerializer):
                 if timezone.is_aware(sale.date)
                 else timezone.make_aware(sale.date)
             )
-            change_state_to_ready_for_delivery.apply_async([sale.id], eta=eta)
+            transaction.on_commit(lambda: change_state_to_ready_for_delivery.apply_async(args=[sale.id], eta=eta))
         elif sale_details_data and needs_delivery is False:
             sale.calculate_total()
             StateChange.objects.create(sale=sale, state=StateChange.COBRADA)
