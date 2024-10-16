@@ -44,6 +44,12 @@ class Sale(LPSModel):
         blank=True,
         null=True,
     )
+    total_collected = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.00"))],
+        default=0
+    )
     sale_type = models.CharField(
         max_length=10, choices=CUSTOMER_TYPE_CHOICES, default=MINORISTA
     )
@@ -111,6 +117,7 @@ class StateChange(LPSModel):
     PENDIENTE_ENTREGA = "pendiente_entrega"
     ENTREGADA = "entregada"
     COBRADA = "cobrada"
+    COBRADA_PARCIAL = "cobrada_parcial"
     CANCELADA = "cancelada"
 
     STATE_CHOICES = [
@@ -118,6 +125,7 @@ class StateChange(LPSModel):
         (PENDIENTE_ENTREGA, "Pendiente de Entrega"),
         (ENTREGADA, "Entregada"),
         (COBRADA, "Cobrada"),
+        (COBRADA_PARCIAL, "Cobrada Parcial"),
         (CANCELADA, "Cancelada"),
     ]
 

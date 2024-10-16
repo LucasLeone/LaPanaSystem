@@ -6,6 +6,7 @@ from django.utils import timezone
 from django.db.models import Sum, OuterRef, Subquery, Count
 from django.db.models.functions import TruncDate
 from django.shortcuts import get_object_or_404
+from django.db import transaction
 
 # Django REST Framework
 from rest_framework.decorators import action
@@ -26,7 +27,7 @@ from lapanasystem.expenses.models import Expense
 from lapanasystem.products.models import Product
 
 # Serializers
-from lapanasystem.sales.serializers import SaleSerializer
+from lapanasystem.sales.serializers import SaleSerializer, PartialChargeSerializer
 
 # Filters
 from lapanasystem.sales.filters import SaleFilter
@@ -152,6 +153,7 @@ class SaleViewSet(ModelViewSet):
         )
 
     @action(detail=True, methods=["post"], url_path="mark-as-charged")
+    @transaction.atomic
     def mark_as_charged(self, request, *args, **kwargs):
         """
         Marks a sale as charged.
@@ -179,12 +181,86 @@ class SaleViewSet(ModelViewSet):
         last_state_change.end_date = timezone.now()
         last_state_change.save()
 
+        instance.total_collected = instance.total
+        instance.save()
+
         StateChange.objects.create(sale=instance, state=StateChange.COBRADA)
 
         return Response(
             {"message": "Venta marcada como cobrada."},
             status=status.HTTP_200_OK,
         )
+
+    @action(detail=True, methods=["post"], url_path="mark-as-partial-charged")
+    @transaction.atomic
+    def mark_as_partial_charged(self, request, *args, **kwargs):
+        """
+        Marks a sale as partially charged.
+
+        Expects a JSON body with the 'total' field indicating the amount charged.
+
+        Raises:
+            ValidationError:
+                - If the sale has no previous state.
+                - If the sale has already been canceled.
+                - If the sale has already been fully charged.
+                - If the provided total is invalid.
+
+        Returns:
+            Response: A response indicating that the sale has been marked as partially charged.
+        """
+        instance = self.get_object()
+
+        serializer = PartialChargeSerializer(data=request.data, context={'sale': instance})
+        serializer.is_valid(raise_exception=True)
+        partial_total = serializer.validated_data['total']
+
+        if partial_total <= 0:
+            raise ValidationError("El monto debe ser mayor que cero.")
+
+        if partial_total > instance.total:
+            raise ValidationError("El monto parcial no puede exceder el total de la venta.")
+
+        last_state_change = instance.state_changes.order_by("-start_date").first()
+
+        if not last_state_change:
+            raise ValidationError("La venta no tiene un estado previo.")
+
+        if last_state_change.state == StateChange.CANCELADA:
+            raise ValidationError("La venta ya ha sido cancelada.")
+
+        if (
+            last_state_change.state == StateChange.CREADA or
+            last_state_change.state == StateChange.PENDIENTE_ENTREGA
+        ):
+            raise ValidationError("La venta aún no ha sido entregada.")
+
+        if last_state_change.state == StateChange.COBRADA:
+            raise ValidationError("La venta ya ha sido completamente cobrada.")
+
+        new_total_collected = instance.total_collected + partial_total
+        if new_total_collected > instance.total:
+            raise ValidationError("El monto total cobrado excede el total de la venta.")
+        instance.total_collected = new_total_collected
+
+        instance.save()
+
+        last_state_change.end_date = timezone.now()
+        last_state_change.save()
+
+        if instance.total_collected == instance.total:
+            StateChange.objects.create(sale=instance, state=StateChange.COBRADA)
+            return Response(
+                {"message": "Venta marcada como cobrada."},
+                status=status.HTTP_200_OK,
+            )
+        else:
+            StateChange.objects.create(sale=instance, state=StateChange.COBRADA_PARCIAL)
+            return Response(
+                {"message": "Venta marcada como cobrada parcialmente."},
+                status=status.HTTP_200_OK,
+            )
+
 
     @action(detail=True, methods=["post"])
     def cancel(self, request, *args, **kwargs):

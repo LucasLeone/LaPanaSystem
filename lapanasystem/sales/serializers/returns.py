@@ -84,7 +84,6 @@ class ReturnSerializer(serializers.ModelSerializer):
             "date",
             "total",
             "return_details",
-            "reason",
         ]
         read_only_fields = [
             "id",

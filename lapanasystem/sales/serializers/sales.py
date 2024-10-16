@@ -134,6 +134,7 @@ class SaleSerializer(serializers.ModelSerializer):
             "customer_details",
             "date",
             "total",
+            "total_collected",
             "sale_type",
             "payment_method",
             "state",
@@ -272,3 +273,25 @@ class SaleSerializer(serializers.ModelSerializer):
             pass
 
         return sale
+
+
+class PartialChargeSerializer(serializers.Serializer):
+    """Serializer for partial charges."""
+
+    total = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal('0.01'),
+        help_text="Monto parcial cobrado. Debe ser mayor que cero y no exceder el total de la venta."
+    )
+
+    def validate_total(self, value):
+        """Validate total not exceeding the total of the sale."""
+        sale = self.context.get('sale')
+        if sale is None:
+            raise serializers.ValidationError("No se proporcionó la venta para la validación.")
+
+        if value > sale.total:
+            raise serializers.ValidationError("El monto parcial no puede exceder el total de la venta.")
+
+        return value

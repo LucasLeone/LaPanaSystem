@@ -15,6 +15,7 @@ class Return(LPSModel):
 
     user = models.ForeignKey("users.User", on_delete=models.RESTRICT)
     customer = models.ForeignKey("customers.Customer", on_delete=models.RESTRICT)
+    sale = models.ForeignKey("sales.Sale", on_delete=models.RESTRICT)
     date = models.DateTimeField(default=timezone.now)
     total = models.DecimalField(
         max_digits=10,
@@ -23,7 +24,6 @@ class Return(LPSModel):
         blank=True,
         null=True,
     )
-    reason = models.TextField(blank=True, null=True)
 
     def __str__(self):
         """Return customer and date."""
