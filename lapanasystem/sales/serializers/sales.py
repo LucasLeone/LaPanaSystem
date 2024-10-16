@@ -67,7 +67,7 @@ class SaleDetailSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     f"El producto '{product.name}' no tiene precio definido para venta mayorista."
                 )
-        else:  # Venta minorista
+        else:
             if product.retail_price and product.retail_price > 0:
                 return product.retail_price
             else:
@@ -90,11 +90,9 @@ class SaleDetailSerializer(serializers.ModelSerializer):
         sale = self.context.get("sale")
         product = validated_data.get("product", instance.product)
 
-        # Actualizar los campos del detalle
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
 
-        # Recalcular el precio
         instance.price = self._get_price(sale, product)
         instance.save()
         return instance
@@ -169,6 +167,10 @@ class SaleSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "La venta no puede tener detalles y total al mismo tiempo."
             )
+
+        product_ids = [detail['product'].id if isinstance(detail['product'], Product) else detail['product'] for detail in sale_details]
+        if len(product_ids) != len(set(product_ids)):
+            raise serializers.ValidationError("No se pueden repetir productos en los detalles de la venta.")
 
         return data
 

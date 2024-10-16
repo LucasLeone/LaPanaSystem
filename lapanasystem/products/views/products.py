@@ -150,5 +150,5 @@ class ProductCategoryViewSet(ModelViewSet):
         self.perform_destroy(instance)
         return Response(
             {"message": "Product deleted successfully."},
-            status=status.HTTP_204_NO_CONTENT,
+            status=status.HTTP_200_OK,
         )

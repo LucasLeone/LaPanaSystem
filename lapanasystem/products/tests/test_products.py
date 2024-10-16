@@ -2,6 +2,8 @@
 
 # Django
 from django.urls import reverse
+from django.db.utils import IntegrityError
+from django.core.exceptions import ValidationError
 
 # Django REST Framework
 from rest_framework.test import APIClient
@@ -26,6 +28,7 @@ from decimal import Decimal
 @pytest.fixture
 def api_client():
     return APIClient()
+
 
 @pytest.fixture
 def admin_user():
@@ -105,6 +108,7 @@ class TestProductModel:
         assert product1.slug == "coca-cola-1l"
         assert product2.slug == "coca-cola-1l-1"
 
+
 @pytest.mark.django_db
 class TestProductSerializer:
     def test_valid_product_serializer(self, product_data):
@@ -125,9 +129,32 @@ class TestProductSerializer:
 
     def test_invalid_weight_unit(self, product_data):
         product_data["weight_unit"] = "invalid_unit"
+        product_data["category"] = product_data["category"].id
+        product_data["brand"] = product_data["brand"].id
         serializer = ProductSerializer(data=product_data)
         assert not serializer.is_valid()
         assert "weight_unit" in serializer.errors
+
+    def test_duplicate_product(self, product_data):
+        """Verify that creating a duplicate product raises a validation error."""
+        product_data_create = product_data.copy()
+        product_data_create["category"] = product_data_create["category"].id
+        product_data_create["brand"] = product_data_create["brand"].id
+        serializer = ProductSerializer(data=product_data_create)
+        assert serializer.is_valid(), serializer.errors
+        serializer.save()
+
+        product_data_duplicate = product_data.copy()
+        product_data_duplicate["category"] = product_data_duplicate["category"].id
+        product_data_duplicate["brand"] = product_data_duplicate["brand"].id
+        product_data_duplicate["barcode"] = "9876543210987"
+        serializer = ProductSerializer(data=product_data_duplicate)
+        assert not serializer.is_valid()
+        print("Serializer errors:", serializer.errors)
+        assert "non_field_errors" in serializer.errors
+        expected_error = "Ya existe un producto con este nombre, peso y unidad de peso."
+        assert serializer.errors["non_field_errors"][0] == expected_error
+
 
 
 @pytest.mark.django_db
@@ -141,9 +168,10 @@ class TestProductAPI:
     def test_product_create_as_admin(self, api_client, admin_user, product_data):
         """Verify that an admin user can create a product."""
         api_client.force_authenticate(user=admin_user)
-        product_data["category"] = product_data["category"].id
-        product_data["brand"] = product_data["brand"].id
-        response = api_client.post(self.list_url, data=product_data)
+        product_data_api = product_data.copy()
+        product_data_api["category"] = product_data_api["category"].id
+        product_data_api["brand"] = product_data_api["brand"].id
+        response = api_client.post(self.list_url, data=product_data_api)
         assert response.status_code == status.HTTP_201_CREATED
         assert Product.objects.count() == 1
         product = Product.objects.first()
@@ -152,15 +180,19 @@ class TestProductAPI:
     def test_product_create_as_seller(self, api_client, seller_user, product_data):
         """Verify that a seller user can create a product."""
         api_client.force_authenticate(user=seller_user)
-        product_data["category"] = product_data["category"].id
-        product_data["brand"] = product_data["brand"].id
-        response = api_client.post(self.list_url, data=product_data)
+        product_data_api = product_data.copy()
+        product_data_api["category"] = product_data_api["category"].id
+        product_data_api["brand"] = product_data_api["brand"].id
+        response = api_client.post(self.list_url, data=product_data_api)
         assert response.status_code == status.HTTP_201_CREATED
         assert Product.objects.count() == 1
 
     def test_product_create_unauthenticated(self, api_client, product_data):
         """Verify that an unauthenticated user cannot create a product."""
-        response = api_client.post(self.list_url, data=product_data)
+        product_data_api = product_data.copy()
+        product_data_api["category"] = product_data_api["category"].id
+        product_data_api["brand"] = product_data_api["brand"].id
+        response = api_client.post(self.list_url, data=product_data_api)
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_product_list(self, api_client, admin_user, product_data):
@@ -169,7 +201,8 @@ class TestProductAPI:
         api_client.force_authenticate(user=admin_user)
         response = api_client.get(self.list_url)
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) == 1
+        assert len(response.data['results']) == 1
+        assert response.data['results'][0]['name'] == product_data['name']
 
     def test_product_retrieve(self, api_client, admin_user, product_data):
         """Verify that an admin user can retrieve a product."""
@@ -213,6 +246,8 @@ class TestProductAPI:
         assert response.status_code == status.HTTP_200_OK
         product.refresh_from_db()
         assert not product.is_active
+        response = api_client.get(self.list_url)
+        assert len(response.data['results']) == 0
 
     def test_product_delete_as_seller(self, api_client, seller_user, product_data):
         """Verify that a seller user cannot delete a product."""
@@ -247,8 +282,8 @@ class TestProductAPI:
         api_client.force_authenticate(user=admin_user)
         response = api_client.get(self.list_url, {"category": category1.id})
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) == 1
-        assert response.data[0]["name"] == "Product A"
+        assert len(response.data['results']) == 1
+        assert response.data['results'][0]["name"] == "Product A"
 
     def test_product_search(self, api_client, admin_user, category, brand):
         """Verify that an admin user can search products by name or barcode."""
@@ -272,8 +307,8 @@ class TestProductAPI:
         api_client.force_authenticate(user=admin_user)
         response = api_client.get(self.list_url, {"search": "Coca"})
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) == 1
-        assert response.data[0]["name"] == "Coca Cola"
+        assert len(response.data['results']) == 1
+        assert response.data['results'][0]["name"] == "Coca Cola"
 
     def test_product_ordering(self, api_client, admin_user, category, brand):
         """Verify that an admin user can order products by name."""
@@ -297,12 +332,15 @@ class TestProductAPI:
         api_client.force_authenticate(user=admin_user)
         response = api_client.get(self.list_url, {"ordering": "name"})
         assert response.status_code == status.HTTP_200_OK
-        assert response.data[0]["name"] == "A Product"
-        assert response.data[1]["name"] == "B Product"
+        assert response.data['results'][0]["name"] == "A Product"
+        assert response.data['results'][1]["name"] == "B Product"
 
     def test_permissions_create(self, api_client, product_data):
         """Verify that an unauthenticated user cannot create a product."""
-        response = api_client.post(self.list_url, data=product_data)
+        product_data_api = product_data.copy()
+        product_data_api["category"] = product_data_api["category"].id
+        product_data_api["brand"] = product_data_api["brand"].id
+        response = api_client.post(self.list_url, data=product_data_api)
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_permissions_list(self, api_client):
@@ -314,7 +352,10 @@ class TestProductAPI:
         """Verify that an unauthenticated user cannot update a product."""
         product = Product.objects.create(**product_data)
         url = reverse("api:products-detail", args=[product.slug])
-        response = api_client.put(url, data=product_data)
+        product_data_api = product_data.copy()
+        product_data_api["category"] = product_data_api["category"].id
+        product_data_api["brand"] = product_data_api["brand"].id
+        response = api_client.put(url, data=product_data_api)
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_permissions_delete(self, api_client, product_data):
@@ -340,6 +381,17 @@ class TestProductBrandSerializer:
         brand = serializer.save()
         assert brand.name == brand_data["name"]
         assert brand.description == brand_data["description"]
+
+    def test_duplicate_brand_name(self, brand_data):
+        """Verify that duplicate brand names are not allowed."""
+        serializer = ProductBrandSerializer(data=brand_data)
+        assert serializer.is_valid(), serializer.errors
+        serializer.save()
+        serializer = ProductBrandSerializer(data=brand_data)
+        assert not serializer.is_valid()
+        assert "name" in serializer.errors
+        expected_error = "Ya existe una marca con este nombre."
+        assert serializer.errors["name"][0] == expected_error
 
 
 @pytest.mark.django_db
@@ -377,7 +429,7 @@ class TestProductBrandAPI:
         api_client.force_authenticate(user=admin_user)
         response = api_client.get(self.list_url)
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) == 1
+        assert len(response.data['results']) == 1
 
     def test_brand_retrieve(self, api_client, admin_user, brand_data):
         """Verify that an admin user can retrieve a brand."""
@@ -419,6 +471,8 @@ class TestProductBrandAPI:
         assert response.status_code == status.HTTP_200_OK
         brand.refresh_from_db()
         assert not brand.is_active
+        response = api_client.get(self.list_url)
+        assert len(response.data['results']) == 0
 
     def test_brand_delete_as_seller(self, api_client, seller_user, brand_data):
         """Verify that a seller user cannot delete a brand."""
@@ -444,6 +498,17 @@ class TestProductCategorySerializer:
         category = serializer.save()
         assert category.name == category_data["name"]
         assert category.description == category_data["description"]
+
+    def test_duplicate_category_name(self, category_data):
+        """Verify that duplicate category names are not allowed."""
+        serializer = ProductCategorySerializer(data=category_data)
+        assert serializer.is_valid(), serializer.errors
+        serializer.save()
+        serializer = ProductCategorySerializer(data=category_data)
+        assert not serializer.is_valid()
+        assert "name" in serializer.errors
+        expected_error = "Ya existe una categoría con este nombre."
+        assert serializer.errors["name"][0] == expected_error
 
 
 @pytest.mark.django_db
@@ -481,7 +546,7 @@ class TestProductCategoryAPI:
         api_client.force_authenticate(user=admin_user)
         response = api_client.get(self.list_url)
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) == 1
+        assert len(response.data['results']) == 1
 
     def test_category_retrieve(self, api_client, admin_user, category_data):
         """Verify that an admin user can retrieve a category."""
@@ -523,6 +588,8 @@ class TestProductCategoryAPI:
         assert response.status_code == status.HTTP_200_OK
         category.refresh_from_db()
         assert not category.is_active
+        response = api_client.get(self.list_url)
+        assert len(response.data['results']) == 0
 
     def test_category_delete_as_seller(self, api_client, seller_user, category_data):
         """Verify that a seller user cannot delete a category."""
