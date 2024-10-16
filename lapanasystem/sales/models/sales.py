@@ -75,13 +75,6 @@ class Sale(LPSModel):
             self.date = timezone.now()
         super().save(*args, **kwargs)
 
-    class Meta:
-        """Meta options."""
-
-        constraints = [
-            models.UniqueConstraint(fields=['sale', 'product'], name='unique_sale_product')
-        ]
-
 
 class SaleDetail(LPSModel):
     """Sale detail model."""
