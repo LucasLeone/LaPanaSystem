@@ -27,7 +27,7 @@ from lapanasystem.expenses.models import Expense
 from lapanasystem.products.models import Product
 
 # Serializers
-from lapanasystem.sales.serializers import SaleSerializer, PartialChargeSerializer
+from lapanasystem.sales.serializers import SaleSerializer, PartialChargeSerializer, FastSaleSerializer
 
 # Filters
 from lapanasystem.sales.filters import SaleFilter
@@ -261,6 +261,32 @@ class SaleViewSet(ModelViewSet):
                 status=status.HTTP_200_OK,
             )
 
+    @action(detail=False, methods=["post"], url_path="create-fast-sale")
+    def create_fast_sale(self, request, *args, **kwargs):
+        """
+        Creates a fast sale.
+
+        Expects a JSON body with the following fields:
+            - customer: Customer ID (Optional).
+            - total: Total amount of the sale.
+            - payment_method: Payment method (Optional, It's gonna be Efectivo if it's null).
+            - date: Sale date (Optional, It's gonna be the current date if it's null).
+
+        Returns:
+            Response: A response indicating that the sale has been created.
+        """
+        serializer = FastSaleSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        sale = serializer.save()
+
+        sale_data = SaleSerializer(sale, context={'request': request}).data
+
+        return Response(
+            {
+                "sale": sale_data
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
     @action(detail=True, methods=["post"])
     def cancel(self, request, *args, **kwargs):

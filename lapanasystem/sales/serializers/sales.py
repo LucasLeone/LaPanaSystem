@@ -148,6 +148,8 @@ class SaleSerializer(serializers.ModelSerializer):
             "state_changes",
             "customer_details",
             "user_details",
+            "total",
+            "total_collected",
         ]
 
     def get_state(self, obj):
@@ -157,16 +159,10 @@ class SaleSerializer(serializers.ModelSerializer):
     def validate(self, data):
         """Validate the sale details."""
         sale_details = data.get("sale_details", [])
-        total = data.get("total", None)
 
-        if not sale_details and total is None:
+        if not sale_details:
             raise serializers.ValidationError(
-                "La venta debe tener al menos un detalle o el total."
-            )
-
-        if sale_details and total is not None:
-            raise serializers.ValidationError(
-                "La venta no puede tener detalles y total al mismo tiempo."
+                "La venta debe tener al menos un detalle."
             )
 
         product_ids = [detail['product'].id if isinstance(detail['product'], Product) else detail['product'] for detail in sale_details]
@@ -261,16 +257,11 @@ class SaleSerializer(serializers.ModelSerializer):
                     sale_detail_serializer.is_valid(raise_exception=True)
                     sale_detail_serializer.save()
 
-            # Eliminar detalles que no están en incoming_ids
             for detail_id, detail in existing_details.items():
                 if detail_id not in incoming_ids:
                     detail.delete()
 
-            # Recalcular total basado en los detalles
             sale.calculate_total()
-        else:
-            # No se proporcionaron sale_details_data, mantener el total proporcionado
-            pass
 
         return sale
 
@@ -295,3 +286,71 @@ class PartialChargeSerializer(serializers.Serializer):
             raise serializers.ValidationError("El monto parcial no puede exceder el total de la venta.")
 
         return value
+
+
+class FastSaleSerializer(serializers.Serializer):
+    """Serializer for fast sales."""
+
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    user_details = UserSerializer(source="user", read_only=True)
+    customer = serializers.PrimaryKeyRelatedField(
+        queryset=Customer.objects.all(),
+        required=False,
+        allow_null=True
+    )
+    customer_details = CustomerSerializer(source='customer', read_only=True)
+    total = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal('0.01'),
+        required=True
+    )
+    date = serializers.DateTimeField(required=False)
+    payment_method = serializers.ChoiceField(
+        choices=Sale.SALE_PAYMENT_METHOD_CHOICES,
+        default=Sale.EFECTIVO,
+        required=False
+    )
+
+    class Meta:
+        """Meta options."""
+
+        fields = [
+            'user',
+            'user_details',
+            'customer',
+            'customer_details',
+            'total',
+            'date',
+            'payment_method'
+        ]
+        read_only_fields = ['user_details', 'customer_details']
+
+    def validate(self, data):
+        """Validate the total."""
+        total = data.get('total', None)
+        if total is None:
+            raise serializers.ValidationError("El total es requerido.")
+
+        return data
+
+    def create(self, validated_data):
+        """Create a fast sale."""
+        user = validated_data.get('user')
+        customer = validated_data.get('customer', None)
+        total = validated_data.get('total')
+        date = validated_data.get('date', timezone.now())
+        payment_method = validated_data.get('payment_method', Sale.EFECTIVO)
+
+        sale = Sale.objects.create(
+            user=user,
+            customer=customer,
+            total=total,
+            total_collected=total,
+            date=date,
+            payment_method=payment_method
+        )
+
+        StateChange.objects.create(sale=sale, state=StateChange.COBRADA)
+
+        return sale
