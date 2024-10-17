@@ -354,3 +354,16 @@ class FastSaleSerializer(serializers.Serializer):
         StateChange.objects.create(sale=sale, state=StateChange.COBRADA)
 
         return sale
+
+    def update(self, instance, validated_data):
+        """Update a fast sale."""
+        instance.customer = validated_data.get('customer', instance.customer)
+        instance.total = validated_data.get('total', instance.total)
+        instance.date = validated_data.get('date', instance.date)
+        instance.payment_method = validated_data.get('payment_method', instance.payment_method)
+
+        instance.total_collected = instance.total
+
+        instance.save()
+
+        return instance

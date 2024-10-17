@@ -119,6 +119,7 @@ class StateChange(LPSModel):
     COBRADA = "cobrada"
     COBRADA_PARCIAL = "cobrada_parcial"
     CANCELADA = "cancelada"
+    ANULADA = "anulada"
 
     STATE_CHOICES = [
         (CREADA, "Creada"),
@@ -127,6 +128,7 @@ class StateChange(LPSModel):
         (COBRADA, "Cobrada"),
         (COBRADA_PARCIAL, "Cobrada Parcial"),
         (CANCELADA, "Cancelada"),
+        (ANULADA, "Anulada"),
     ]
 
     sale = models.ForeignKey(

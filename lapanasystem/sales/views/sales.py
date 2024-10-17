@@ -288,6 +288,35 @@ class SaleViewSet(ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
+    @action(detail=True, methods=["put"], url_path="update-fast-sale")
+    def update_fast_sale(self, request, *args, **kwargs):
+        """
+        Updates a fast sale.
+
+        Expects a JSON body with the following fields:
+            - customer: Customer ID (Optional).
+            - total: Total amount of the sale.
+            - payment_method: Payment method (Optional, It's gonna be Efectivo if it's null).
+            - date: Sale date (Optional, It's gonna be the current date if it's null).
+
+        Returns:
+            Response: A response indicating that the sale has been updated.
+        """
+        instance = self.get_object()
+
+        serializer = FastSaleSerializer(instance, data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        sale = serializer.save()
+
+        sale_data = SaleSerializer(sale, context={'request': request}).data
+
+        return Response(
+            {
+                "sale": sale_data
+            },
+            status=status.HTTP_200_OK,
+        )
+
     @action(detail=True, methods=["post"])
     def cancel(self, request, *args, **kwargs):
         """
@@ -310,18 +339,31 @@ class SaleViewSet(ModelViewSet):
         if last_state_change.state == StateChange.CANCELADA:
             raise ValidationError("La venta ya ha sido cancelada.")
 
-        if last_state_change.state == StateChange.COBRADA:
-            raise ValidationError("No se puede cancelar una venta ya cobrada.")
+        if last_state_change.state == StateChange.ANULADA:
+            raise ValidationError("La venta ya ha sido anulada.")
 
-        last_state_change.end_date = timezone.now()
-        last_state_change.save()
+        if (last_state_change.state == StateChange.CREADA or
+            last_state_change.state == StateChange.PENDIENTE_ENTREGA or
+            last_state_change.state == StateChange.ENTREGADA):
+            last_state_change.end_date = timezone.now()
+            last_state_change.save()
 
-        StateChange.objects.create(sale=instance, state=StateChange.CANCELADA)
+            StateChange.objects.create(sale=instance, state=StateChange.CANCELADA)
+            return Response(
+                {"message": "Venta marcada como cancelada."},
+                status=status.HTTP_200_OK,
+            )
 
-        return Response(
-            {"message": "Venta marcada como cancelada."},
-            status=status.HTTP_200_OK,
-        )
+        if (last_state_change.state == StateChange.COBRADA or
+            last_state_change.state == StateChange.COBRADA_PARCIAL):
+            last_state_change.end_date = timezone.now()
+            last_state_change.save()
+
+            StateChange.objects.create(sale=instance, state=StateChange.ANULADA)
+            return Response(
+                {"message": "Venta marcada como anulada."},
+                status=status.HTTP_200_OK,
+            )
 
     @action(detail=False, methods=["get"], url_path='statistics')
     def statistics(self, request, *args, **kwargs):
