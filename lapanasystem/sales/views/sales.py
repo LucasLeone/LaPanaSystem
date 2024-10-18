@@ -4,7 +4,7 @@
 from decimal import Decimal
 from django.utils import timezone
 from django.db.models import Sum, OuterRef, Subquery, Count
-from django.db.models.functions import TruncDate
+from django.db.models.functions import TruncDate, Coalesce
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 
@@ -34,6 +34,7 @@ from lapanasystem.sales.filters import SaleFilter
 
 # Utilities
 from datetime import datetime, timedelta
+from collections import defaultdict
 
 
 class SaleViewSet(ModelViewSet):
@@ -77,7 +78,7 @@ class SaleViewSet(ModelViewSet):
     filter_backends = [SearchFilter, OrderingFilter, DjangoFilterBackend]
     search_fields = ["customer__name", "user__username"]
     filterset_class = SaleFilter
-    ordering_fields = ["date", "total"]
+    ordering_fields = ["id", "date", "total", "customer__name", "user__username", "total_collected"]
 
     def get_permissions(self):
         """Assign permissions based on action."""
@@ -364,6 +365,79 @@ class SaleViewSet(ModelViewSet):
                 {"message": "Venta marcada como anulada."},
                 status=status.HTTP_200_OK,
             )
+
+    @action(detail=False, methods=["get"], url_path="list-by-customer-for-collect")
+    def list_by_customer_for_collect(self, request, *args, **kwargs):
+        """
+        List sales by customer for collect.
+
+        Show the total amount to collect for each customer.
+        Must subtract the return from the sale.
+        Must filter sales with state "ENTREGADA" or "COBRADA_PARCIAL".
+
+        Returns:
+            Response: A response containing the sales by customer for collect.
+        """
+        latest_state_subquery = StateChange.objects.filter(
+            sale=OuterRef('pk')
+        ).order_by('-start_date').values('state')[:1]
+
+        sales_qs = Sale.objects.filter(
+            is_active=True,
+            sale_type=Sale.MAYORISTA
+        ).annotate(
+            latest_state=Subquery(latest_state_subquery)
+        ).filter(
+            latest_state__in=[StateChange.ENTREGADA, StateChange.COBRADA_PARCIAL]
+        ).annotate(
+            total_returns=Coalesce(Sum('returns__total'), Decimal('0.00'))
+        ).select_related('customer')
+
+        customers = defaultdict(lambda: {
+            "name": "",
+            "total_sales": Decimal('0.00'),
+            "total_discounted": Decimal('0.00'),
+            "sales_to_collect": []
+        })
+
+        for sale in sales_qs:
+            customer = sale.customer
+            if not customer:
+                continue
+
+            customer_id = customer.id
+            customers[customer_id]["name"] = customer.name
+            customers[customer_id]["total_sales"] += sale.total
+            customers[customer_id]["total_discounted"] += sale.total_returns
+
+            total_to_collect = sale.total - sale.total_returns
+
+            customers[customer_id]["sales_to_collect"].append({
+                "id": sale.id,
+                "date": sale.date.isoformat(),
+                "total": f"{sale.total:.2f}",
+                "total_returns": f"{sale.total_returns:.2f}",
+                "total_to_collect": f"{total_to_collect:.2f}",
+            })
+
+        response_data = []
+        for customer_data in customers.values():
+            total_sales = customer_data["total_sales"]
+            total_discounted = customer_data["total_discounted"]
+            total_to_collect = total_sales - total_discounted
+
+            response_data.append({
+                "name": customer_data["name"],
+                "total_sales": f"{total_sales:.2f}",
+                "total_discounted": f"{total_discounted:.2f}",
+                "total_to_collect": f"{total_to_collect:.2f}",
+                "sales_to_collect": customer_data["sales_to_collect"],
+            })
+
+        return Response(
+            {"customers": response_data},
+            status=status.HTTP_200_OK,
+        )
 
     @action(detail=False, methods=["get"], url_path='statistics')
     def statistics(self, request, *args, **kwargs):

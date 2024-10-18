@@ -16,7 +16,7 @@ class Sale(LPSModel):
     MINORISTA = "minorista"
     MAYORISTA = "mayorista"
 
-    CUSTOMER_TYPE_CHOICES = [(MINORISTA, "Minorista"), (MAYORISTA, "Mayorista")]
+    SALE_TYPE_CHOICES = [(MINORISTA, "Minorista"), (MAYORISTA, "Mayorista")]
 
     EFECTIVO = "efectivo"
     TARJETA = "tarjeta"
@@ -51,7 +51,7 @@ class Sale(LPSModel):
         default=0
     )
     sale_type = models.CharField(
-        max_length=10, choices=CUSTOMER_TYPE_CHOICES, default=MINORISTA
+        max_length=10, choices=SALE_TYPE_CHOICES, default=MINORISTA
     )
     payment_method = models.CharField(
         max_length=16, choices=SALE_PAYMENT_METHOD_CHOICES, default=EFECTIVO

@@ -14,20 +14,21 @@ class Return(LPSModel):
     """Return model."""
 
     user = models.ForeignKey("users.User", on_delete=models.RESTRICT)
-    customer = models.ForeignKey("customers.Customer", on_delete=models.RESTRICT)
-    sale = models.ForeignKey("sales.Sale", on_delete=models.RESTRICT)
+    sale = models.ForeignKey(
+        "sales.Sale", on_delete=models.RESTRICT, related_name="returns"
+    )
     date = models.DateTimeField(default=timezone.now)
     total = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.00'))],
+        validators=[MinValueValidator(Decimal("0.00"))],
         blank=True,
         null=True,
     )
 
     def __str__(self):
         """Return customer and date."""
-        return f"{self.customer} - {self.date}"
+        return f"{self.sale.customer} - {self.date}"
 
     def calculate_total(self):
         """Calculate total."""
@@ -41,17 +42,19 @@ class Return(LPSModel):
 class ReturnDetail(LPSModel):
     """Return detail model."""
 
-    return_order = models.ForeignKey("Return", on_delete=models.CASCADE, related_name="return_details")
+    return_order = models.ForeignKey(
+        "Return", on_delete=models.CASCADE, related_name="return_details"
+    )
     product = models.ForeignKey("products.Product", on_delete=models.RESTRICT)
     quantity = models.DecimalField(
         max_digits=10,
         decimal_places=3,
-        validators=[MinValueValidator(Decimal('0.001'))],
+        validators=[MinValueValidator(Decimal("0.001"))],
     )
     price = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.00'))],
+        validators=[MinValueValidator(Decimal("0.00"))],
         editable=False,
     )
 
