@@ -156,16 +156,7 @@ class SaleViewSet(ModelViewSet):
     @action(detail=True, methods=["post"], url_path="mark-as-charged")
     @transaction.atomic
     def mark_as_charged(self, request, *args, **kwargs):
-        """
-        Marks a sale as charged.
-
-        Raises:
-            ValidationError: If the sale has no previous state, if the sale has already been canceled,
-                or if the sale has already been marked as charged.
-
-        Returns:
-            Response: A response indicating that the sale has been marked as charged.
-        """
+        """Mark a sale as charged."""
         instance = self.get_object()
 
         last_state_change = instance.state_changes.order_by("-start_date").first()
@@ -179,11 +170,18 @@ class SaleViewSet(ModelViewSet):
         if last_state_change.state == StateChange.COBRADA:
             raise ValidationError("La venta ya ha sido marcada como cobrada.")
 
+        total_returns = instance.returns.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+
+        total_to_collect = instance.total - total_returns
+
+        if total_to_collect < 0:
+            raise ValidationError("El total a cobrar no puede ser negativo.")
+
+        instance.total_collected = total_to_collect
+        instance.save()
+
         last_state_change.end_date = timezone.now()
         last_state_change.save()
-
-        instance.total_collected = instance.total
-        instance.save()
 
         StateChange.objects.create(sale=instance, state=StateChange.COBRADA)
 
@@ -195,21 +193,7 @@ class SaleViewSet(ModelViewSet):
     @action(detail=True, methods=["post"], url_path="mark-as-partial-charged")
     @transaction.atomic
     def mark_as_partial_charged(self, request, *args, **kwargs):
-        """
-        Marks a sale as partially charged.
-
-        Expects a JSON body with the 'total' field indicating the amount charged.
-
-        Raises:
-            ValidationError:
-                - If the sale has no previous state.
-                - If the sale has already been canceled.
-                - If the sale has already been fully charged.
-                - If the provided total is invalid.
-
-        Returns:
-            Response: A response indicating that the sale has been marked as partially charged.
-        """
+        """Mark a sale as partially charged."""
         instance = self.get_object()
 
         serializer = PartialChargeSerializer(data=request.data, context={'sale': instance})
@@ -219,48 +203,34 @@ class SaleViewSet(ModelViewSet):
         if partial_total <= 0:
             raise ValidationError("El monto debe ser mayor que cero.")
 
-        if partial_total > instance.total:
-            raise ValidationError("El monto parcial no puede exceder el total de la venta.")
+        total_returns = instance.returns.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
-        last_state_change = instance.state_changes.order_by("-start_date").first()
+        total_to_collect = instance.total - total_returns
 
-        if not last_state_change:
-            raise ValidationError("La venta no tiene un estado previo.")
+        if instance.total_collected + partial_total > total_to_collect:
+            raise ValidationError("El monto parcial no puede exceder el total a cobrar después de considerar devoluciones.")
 
-        if last_state_change.state == StateChange.CANCELADA:
-            raise ValidationError("La venta ya ha sido cancelada.")
-
-        if (
-            last_state_change.state == StateChange.CREADA or
-            last_state_change.state == StateChange.PENDIENTE_ENTREGA
-        ):
-            raise ValidationError("La venta aún no ha sido entregada.")
-
-        if last_state_change.state == StateChange.COBRADA:
-            raise ValidationError("La venta ya ha sido completamente cobrada.")
-
-        new_total_collected = instance.total_collected + partial_total
-        if new_total_collected > instance.total:
-            raise ValidationError("El monto total cobrado excede el total de la venta.")
-        instance.total_collected = new_total_collected
-
+        instance.total_collected += partial_total
         instance.save()
 
-        last_state_change.end_date = timezone.now()
-        last_state_change.save()
+        last_state_change = instance.state_changes.order_by("-start_date").first()
+        if last_state_change:
+            last_state_change.end_date = timezone.now()
+            last_state_change.save()
 
-        if instance.total_collected == instance.total:
-            StateChange.objects.create(sale=instance, state=StateChange.COBRADA)
-            return Response(
-                {"message": "Venta marcada como cobrada."},
-                status=status.HTTP_200_OK,
-            )
+        if instance.total_collected == total_to_collect:
+            new_state = StateChange.COBRADA
+            message = "Venta marcada como cobrada."
         else:
-            StateChange.objects.create(sale=instance, state=StateChange.COBRADA_PARCIAL)
-            return Response(
-                {"message": "Venta marcada como cobrada parcialmente."},
-                status=status.HTTP_200_OK,
-            )
+            new_state = StateChange.COBRADA_PARCIAL
+            message = "Venta marcada como cobrada parcialmente."
+
+        StateChange.objects.create(sale=instance, state=new_state)
+
+        return Response(
+            {"message": message},
+            status=status.HTTP_200_OK,
+        )
 
     @action(detail=False, methods=["post"], url_path="create-fast-sale")
     def create_fast_sale(self, request, *args, **kwargs):
@@ -372,7 +342,7 @@ class SaleViewSet(ModelViewSet):
         List sales by customer for collect.
 
         Show the total amount to collect for each customer.
-        Must subtract the return from the sale.
+        Must subtract the return from the sale and the amount already collected.
         Must filter sales with state "ENTREGADA" or "COBRADA_PARCIAL".
 
         Returns:
@@ -397,6 +367,8 @@ class SaleViewSet(ModelViewSet):
             "name": "",
             "total_sales": Decimal('0.00'),
             "total_discounted": Decimal('0.00'),
+            "total_collected": Decimal('0.00'),
+            "total_to_collect": Decimal('0.00'),
             "sales_to_collect": []
         })
 
@@ -409,27 +381,32 @@ class SaleViewSet(ModelViewSet):
             customers[customer_id]["name"] = customer.name
             customers[customer_id]["total_sales"] += sale.total
             customers[customer_id]["total_discounted"] += sale.total_returns
+            customers[customer_id]["total_collected"] += sale.total_collected
 
-            total_to_collect = sale.total - sale.total_returns
+            total_to_collect_sale = sale.total - sale.total_returns - sale.total_collected
 
             customers[customer_id]["sales_to_collect"].append({
                 "id": sale.id,
                 "date": sale.date.isoformat(),
                 "total": f"{sale.total:.2f}",
                 "total_returns": f"{sale.total_returns:.2f}",
-                "total_to_collect": f"{total_to_collect:.2f}",
+                "total_collected": f"{sale.total_collected:.2f}",
+                "total_to_collect": f"{total_to_collect_sale:.2f}",
+                "sale_details": SaleSerializer(sale).data,
             })
 
         response_data = []
         for customer_data in customers.values():
             total_sales = customer_data["total_sales"]
             total_discounted = customer_data["total_discounted"]
-            total_to_collect = total_sales - total_discounted
+            total_collected = customer_data["total_collected"]
+            total_to_collect = total_sales - total_discounted - total_collected
 
             response_data.append({
                 "name": customer_data["name"],
                 "total_sales": f"{total_sales:.2f}",
                 "total_discounted": f"{total_discounted:.2f}",
+                "total_collected": f"{total_collected:.2f}",
                 "total_to_collect": f"{total_to_collect:.2f}",
                 "sales_to_collect": customer_data["sales_to_collect"],
             })
