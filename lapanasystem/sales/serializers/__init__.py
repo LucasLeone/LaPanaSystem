@@ -6,7 +6,6 @@ from .sales import (
     FastSaleSerializer
 )
 from .returns import ReturnSerializer, ReturnDetailSerializer
-from .collects import CollectSerializer
 
 __all__ = [
     "SaleSerializer",
@@ -14,7 +13,6 @@ __all__ = [
     "StateChangeSerializer",
     "ReturnSerializer",
     "ReturnDetailSerializer",
-    "CollectSerializer",
     "PartialChargeSerializer",
     "FastSaleSerializer"
 ]
