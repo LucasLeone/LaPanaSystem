@@ -23,8 +23,6 @@ class Supplier(LPSModel):
     email = models.EmailField(max_length=100, blank=True, unique=True)
     address = models.CharField(max_length=255, blank=True)
 
-    is_active = models.BooleanField(default=True)
-
     def __str__(self):
         """Return name."""
         return self.name
