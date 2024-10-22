@@ -57,8 +57,10 @@ class CustomerViewSet(ModelViewSet):
 
     def get_permissions(self):
         """Assign permissions based on action."""
-        if self.action in ["create", "retrieve", "list", "update", "partial_update"]:
+        if self.action in ["create", "retrieve", "update", "partial_update"]:
             permissions = [IsAuthenticated, IsAdmin | IsSeller]
+        elif self.action == "list":
+            permissions = [IsAuthenticated,]
         else:
             permissions = [IsAuthenticated, IsAdmin]
         return [permission() for permission in permissions]

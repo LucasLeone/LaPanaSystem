@@ -52,7 +52,7 @@ class ReturnViewSet(ModelViewSet):
     queryset = Return.objects.filter(is_active=True)
     serializer_class = ReturnSerializer
     filter_backends = [SearchFilter, OrderingFilter, DjangoFilterBackend]
-    search_fields = ["customer__name"]
+    search_fields = ["sale__customer__name"]
     filterset_class = ReturnFilter
     ordering_fields = ["date", "total"]
 

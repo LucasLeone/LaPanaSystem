@@ -37,13 +37,22 @@ class ReturnDetailSerializer(serializers.ModelSerializer):
         fields = ["id", "product", "product_details", "quantity", "price", "subtotal"]
         read_only_fields = ["id", "price", "subtotal", "product_details"]
 
+    def __init__(self, *args, **kwargs):
+        """Set product field as not required for update."""
+        super(ReturnDetailSerializer, self).__init__(*args, **kwargs)
+        if self.instance:
+            self.fields['product'].required = False
+
     def get_subtotal(self, obj):
         """Calculate the subtotal for the detail."""
         return obj.price * obj.quantity
 
     def validate(self, data):
         """Validate that the product has a valid wholesale price and quantity is valid."""
-        product = data.get("product")
+        product = data.get("product", getattr(self.instance, 'product', None))
+        if product is None:
+            raise serializers.ValidationError("El campo 'product' es obligatorio.")
+
         if not product.wholesale_price or product.wholesale_price <= 0:
             raise serializers.ValidationError(
                 f"The product '{product.name}' does not have a valid wholesale price and cannot be returned."
@@ -59,6 +68,18 @@ class ReturnDetailSerializer(serializers.ModelSerializer):
         validated_data["price"] = price
 
         return ReturnDetail.objects.create(return_order=return_order, **validated_data)
+
+    def update(self, instance, validated_data):
+        """Update a return detail."""
+        product = validated_data.get("product", instance.product)
+        quantity = validated_data.get("quantity", instance.quantity)
+
+        instance.product = product
+        instance.quantity = quantity
+        instance.price = product.wholesale_price
+        instance.save()
+
+        return instance
 
 
 class ReturnSerializer(serializers.ModelSerializer):

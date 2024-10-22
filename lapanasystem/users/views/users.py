@@ -9,7 +9,7 @@ from rest_framework.response import Response
 
 # Permissions
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from lapanasystem.users.permissions import IsAdmin
+from lapanasystem.users.permissions import IsAdmin, IsRequestUser
 
 # Models
 from lapanasystem.users.models import User
@@ -80,6 +80,8 @@ class UserViewSet(
             "destroy",
         ]:
             permission_classes = [IsAuthenticated, IsAdmin]
+        elif self.action in ["profile",]:
+            permission_classes = [IsAuthenticated, IsRequestUser]
         else:
             permission_classes = [IsAuthenticated]
         return [permission() for permission in permission_classes]
@@ -133,3 +135,10 @@ class UserViewSet(
             {"message": "User deleted successfully."},
             status=status.HTTP_204_NO_CONTENT,
         )
+
+    @action(detail=False, methods=["get"], url_path="profile")
+    def profile(self, request):
+        """Return user's profile."""
+        user = request.user
+        data = UserSerializer(user).data
+        return Response(data, status=status.HTTP_200_OK)

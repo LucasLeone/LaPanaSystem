@@ -32,3 +32,11 @@ class IsDelivery(permissions.BasePermission):
     def has_permission(self, request, view):
         """Check if the user is delivery."""
         return request.user.is_authenticated and request.user.user_type == User.DELIVERY
+
+
+class IsRequestUser(permissions.BasePermission):
+    """Allow access only to the user itself."""
+
+    def has_object_permission(self, request, view, obj):
+        """Check if the user is the object user."""
+        return request.user == obj

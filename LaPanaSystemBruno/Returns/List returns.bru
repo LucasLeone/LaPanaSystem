@@ -5,19 +5,19 @@ meta {
 }
 
 get {
-  url: http://localhost:8000/api/v1/returns/
+  url: http://localhost:8000/api/v1/returns/?search=adrianaaa
   body: none
   auth: none
 }
 
 params:query {
+  search: adrianaaa
   ~customer: 22
   ~min_total: 3000
   ~max_total: 20200
   ~start_date: 2024-01-01
   ~end_date: 2024-12-31
   ~date: 2023-10-15
-  ~search: John
 }
 
 headers {

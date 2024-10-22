@@ -27,7 +27,11 @@ from lapanasystem.expenses.models import Expense
 from lapanasystem.products.models import Product
 
 # Serializers
-from lapanasystem.sales.serializers import SaleSerializer, PartialChargeSerializer, FastSaleSerializer
+from lapanasystem.sales.serializers import (
+    SaleSerializer,
+    PartialChargeSerializer,
+    FastSaleSerializer,
+)
 
 # Filters
 from lapanasystem.sales.filters import SaleFilter
@@ -78,7 +82,14 @@ class SaleViewSet(ModelViewSet):
     filter_backends = [SearchFilter, OrderingFilter, DjangoFilterBackend]
     search_fields = ["customer__name", "user__username"]
     filterset_class = SaleFilter
-    ordering_fields = ["id", "date", "total", "customer__name", "user__username", "total_collected"]
+    ordering_fields = [
+        "id",
+        "date",
+        "total",
+        "customer__name",
+        "user__username",
+        "total_collected",
+    ]
 
     def get_permissions(self):
         """Assign permissions based on action."""
@@ -88,14 +99,22 @@ class SaleViewSet(ModelViewSet):
             "partial_update",
             "destroy",
             "cancel",
-            "list",
             "retrieve",
+            "create_fast_sale",
+            "update_fast_sale",
         ]:
             permissions = [IsAuthenticated, IsSeller | IsAdmin]
-        elif self.action in ["mark_as_delivered", "mark_as_charged"]:
+        elif self.action in [
+            "mark_as_delivered",
+            "mark_as_charged",
+            "mark_as_partial_charged",
+            "list_by_customer_for_collect",
+        ]:
             permissions = [IsAuthenticated, IsDelivery | IsAdmin]
         elif self.action == "statistics":
             permissions = [IsAuthenticated, IsAdmin]
+        elif self.action == "list":
+            permissions = [IsAuthenticated]
         else:
             permissions = [IsAuthenticated, IsAdmin]
         return [p() for p in permissions]
@@ -170,7 +189,9 @@ class SaleViewSet(ModelViewSet):
         if last_state_change.state == StateChange.COBRADA:
             raise ValidationError("La venta ya ha sido marcada como cobrada.")
 
-        total_returns = instance.returns.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+        total_returns = instance.returns.aggregate(total=Sum("total"))[
+            "total"
+        ] or Decimal("0.00")
 
         total_to_collect = instance.total - total_returns
 
@@ -196,19 +217,25 @@ class SaleViewSet(ModelViewSet):
         """Mark a sale as partially charged."""
         instance = self.get_object()
 
-        serializer = PartialChargeSerializer(data=request.data, context={'sale': instance})
+        serializer = PartialChargeSerializer(
+            data=request.data, context={"sale": instance}
+        )
         serializer.is_valid(raise_exception=True)
-        partial_total = serializer.validated_data['total']
+        partial_total = serializer.validated_data["total"]
 
         if partial_total <= 0:
             raise ValidationError("El monto debe ser mayor que cero.")
 
-        total_returns = instance.returns.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+        total_returns = instance.returns.aggregate(total=Sum("total"))[
+            "total"
+        ] or Decimal("0.00")
 
         total_to_collect = instance.total - total_returns
 
         if instance.total_collected + partial_total > total_to_collect:
-            raise ValidationError("El monto parcial no puede exceder el total a cobrar después de considerar devoluciones.")
+            raise ValidationError(
+                "El monto parcial no puede exceder el total a cobrar después de considerar devoluciones."
+            )
 
         instance.total_collected += partial_total
         instance.save()
@@ -246,16 +273,14 @@ class SaleViewSet(ModelViewSet):
         Returns:
             Response: A response indicating that the sale has been created.
         """
-        serializer = FastSaleSerializer(data=request.data, context={'request': request})
+        serializer = FastSaleSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         sale = serializer.save()
 
-        sale_data = SaleSerializer(sale, context={'request': request}).data
+        sale_data = SaleSerializer(sale, context={"request": request}).data
 
         return Response(
-            {
-                "sale": sale_data
-            },
+            {"sale": sale_data},
             status=status.HTTP_201_CREATED,
         )
 
@@ -275,16 +300,16 @@ class SaleViewSet(ModelViewSet):
         """
         instance = self.get_object()
 
-        serializer = FastSaleSerializer(instance, data=request.data, context={'request': request})
+        serializer = FastSaleSerializer(
+            instance, data=request.data, context={"request": request}
+        )
         serializer.is_valid(raise_exception=True)
         sale = serializer.save()
 
-        sale_data = SaleSerializer(sale, context={'request': request}).data
+        sale_data = SaleSerializer(sale, context={"request": request}).data
 
         return Response(
-            {
-                "sale": sale_data
-            },
+            {"sale": sale_data},
             status=status.HTTP_200_OK,
         )
 
@@ -313,9 +338,11 @@ class SaleViewSet(ModelViewSet):
         if last_state_change.state == StateChange.ANULADA:
             raise ValidationError("La venta ya ha sido anulada.")
 
-        if (last_state_change.state == StateChange.CREADA or
-            last_state_change.state == StateChange.PENDIENTE_ENTREGA or
-            last_state_change.state == StateChange.ENTREGADA):
+        if (
+            last_state_change.state == StateChange.CREADA
+            or last_state_change.state == StateChange.PENDIENTE_ENTREGA
+            or last_state_change.state == StateChange.ENTREGADA
+        ):
             last_state_change.end_date = timezone.now()
             last_state_change.save()
 
@@ -325,8 +352,10 @@ class SaleViewSet(ModelViewSet):
                 status=status.HTTP_200_OK,
             )
 
-        if (last_state_change.state == StateChange.COBRADA or
-            last_state_change.state == StateChange.COBRADA_PARCIAL):
+        if (
+            last_state_change.state == StateChange.COBRADA
+            or last_state_change.state == StateChange.COBRADA_PARCIAL
+        ):
             last_state_change.end_date = timezone.now()
             last_state_change.save()
 
@@ -348,29 +377,32 @@ class SaleViewSet(ModelViewSet):
         Returns:
             Response: A response containing the sales by customer for collect.
         """
-        latest_state_subquery = StateChange.objects.filter(
-            sale=OuterRef('pk')
-        ).order_by('-start_date').values('state')[:1]
+        latest_state_subquery = (
+            StateChange.objects.filter(sale=OuterRef("pk"))
+            .order_by("-start_date")
+            .values("state")[:1]
+        )
 
-        sales_qs = Sale.objects.filter(
-            is_active=True,
-            sale_type=Sale.MAYORISTA
-        ).annotate(
-            latest_state=Subquery(latest_state_subquery)
-        ).filter(
-            latest_state__in=[StateChange.ENTREGADA, StateChange.COBRADA_PARCIAL]
-        ).annotate(
-            total_returns=Coalesce(Sum('returns__total'), Decimal('0.00'))
-        ).select_related('customer')
+        sales_qs = (
+            Sale.objects.filter(is_active=True, sale_type=Sale.MAYORISTA)
+            .annotate(latest_state=Subquery(latest_state_subquery))
+            .filter(
+                latest_state__in=[StateChange.ENTREGADA, StateChange.COBRADA_PARCIAL]
+            )
+            .annotate(total_returns=Coalesce(Sum("returns__total"), Decimal("0.00")))
+            .select_related("customer")
+        )
 
-        customers = defaultdict(lambda: {
-            "name": "",
-            "total_sales": Decimal('0.00'),
-            "total_discounted": Decimal('0.00'),
-            "total_collected": Decimal('0.00'),
-            "total_to_collect": Decimal('0.00'),
-            "sales_to_collect": []
-        })
+        customers = defaultdict(
+            lambda: {
+                "name": "",
+                "total_sales": Decimal("0.00"),
+                "total_discounted": Decimal("0.00"),
+                "total_collected": Decimal("0.00"),
+                "total_to_collect": Decimal("0.00"),
+                "sales_to_collect": [],
+            }
+        )
 
         for sale in sales_qs:
             customer = sale.customer
@@ -383,17 +415,21 @@ class SaleViewSet(ModelViewSet):
             customers[customer_id]["total_discounted"] += sale.total_returns
             customers[customer_id]["total_collected"] += sale.total_collected
 
-            total_to_collect_sale = sale.total - sale.total_returns - sale.total_collected
+            total_to_collect_sale = (
+                sale.total - sale.total_returns - sale.total_collected
+            )
 
-            customers[customer_id]["sales_to_collect"].append({
-                "id": sale.id,
-                "date": sale.date.isoformat(),
-                "total": f"{sale.total:.2f}",
-                "total_returns": f"{sale.total_returns:.2f}",
-                "total_collected": f"{sale.total_collected:.2f}",
-                "total_to_collect": f"{total_to_collect_sale:.2f}",
-                "sale_details": SaleSerializer(sale).data,
-            })
+            customers[customer_id]["sales_to_collect"].append(
+                {
+                    "id": sale.id,
+                    "date": sale.date.isoformat(),
+                    "total": f"{sale.total:.2f}",
+                    "total_returns": f"{sale.total_returns:.2f}",
+                    "total_collected": f"{sale.total_collected:.2f}",
+                    "total_to_collect": f"{total_to_collect_sale:.2f}",
+                    "sale_details": SaleSerializer(sale).data,
+                }
+            )
 
         response_data = []
         for customer_data in customers.values():
@@ -402,21 +438,23 @@ class SaleViewSet(ModelViewSet):
             total_collected = customer_data["total_collected"]
             total_to_collect = total_sales - total_discounted - total_collected
 
-            response_data.append({
-                "name": customer_data["name"],
-                "total_sales": f"{total_sales:.2f}",
-                "total_discounted": f"{total_discounted:.2f}",
-                "total_collected": f"{total_collected:.2f}",
-                "total_to_collect": f"{total_to_collect:.2f}",
-                "sales_to_collect": customer_data["sales_to_collect"],
-            })
+            response_data.append(
+                {
+                    "name": customer_data["name"],
+                    "total_sales": f"{total_sales:.2f}",
+                    "total_discounted": f"{total_discounted:.2f}",
+                    "total_collected": f"{total_collected:.2f}",
+                    "total_to_collect": f"{total_to_collect:.2f}",
+                    "sales_to_collect": customer_data["sales_to_collect"],
+                }
+            )
 
         return Response(
             {"customers": response_data},
             status=status.HTTP_200_OK,
         )
 
-    @action(detail=False, methods=["get"], url_path='statistics')
+    @action(detail=False, methods=["get"], url_path="statistics")
     def statistics(self, request, *args, **kwargs):
         """
         Returns the sales statistics.
@@ -429,26 +467,51 @@ class SaleViewSet(ModelViewSet):
         Returns:
             Response: A response containing the sales statistics.
         """
+
         # Helper function to get date ranges
         def get_date_ranges():
             today = timezone.now().date()
             current_timezone = timezone.get_current_timezone()
 
             # Inicio y fin del día de hoy
-            start_of_today = timezone.make_aware(datetime.combine(today, datetime.min.time()), current_timezone)
-            end_of_today = timezone.make_aware(datetime.combine(today, datetime.max.time()), current_timezone)
+            start_of_today = timezone.make_aware(
+                datetime.combine(today, datetime.min.time()), current_timezone
+            )
+            end_of_today = timezone.make_aware(
+                datetime.combine(today, datetime.max.time()), current_timezone
+            )
 
             # Inicio y fin de la semana (lunes a domingo)
-            start_of_week = timezone.make_aware(datetime.combine(today - timedelta(days=today.weekday()), datetime.min.time()), current_timezone)
-            end_of_week = timezone.make_aware(datetime.combine(start_of_week.date() + timedelta(days=6), datetime.max.time()), current_timezone)
+            start_of_week = timezone.make_aware(
+                datetime.combine(
+                    today - timedelta(days=today.weekday()), datetime.min.time()
+                ),
+                current_timezone,
+            )
+            end_of_week = timezone.make_aware(
+                datetime.combine(
+                    start_of_week.date() + timedelta(days=6), datetime.max.time()
+                ),
+                current_timezone,
+            )
 
             # Inicio y fin del mes
-            start_of_month = timezone.make_aware(datetime.combine(today.replace(day=1), datetime.min.time()), current_timezone)
+            start_of_month = timezone.make_aware(
+                datetime.combine(today.replace(day=1), datetime.min.time()),
+                current_timezone,
+            )
             if today.month == 12:
-                last_day_of_month = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
+                last_day_of_month = today.replace(
+                    year=today.year + 1, month=1, day=1
+                ) - timedelta(days=1)
             else:
-                last_day_of_month = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
-            end_of_month = timezone.make_aware(datetime.combine(last_day_of_month, datetime.max.time()), current_timezone)
+                last_day_of_month = today.replace(
+                    month=today.month + 1, day=1
+                ) - timedelta(days=1)
+            end_of_month = timezone.make_aware(
+                datetime.combine(last_day_of_month, datetime.max.time()),
+                current_timezone,
+            )
 
             return {
                 "today": {"start": start_of_today, "end": end_of_today},
@@ -459,8 +522,8 @@ class SaleViewSet(ModelViewSet):
         date_ranges = get_date_ranges()
 
         # Parse custom date range si se proporciona
-        custom_start = request.query_params.get('start_date')
-        custom_end = request.query_params.get('end_date')
+        custom_start = request.query_params.get("start_date")
+        custom_end = request.query_params.get("end_date")
 
         if custom_start and custom_end:
             try:
@@ -468,24 +531,34 @@ class SaleViewSet(ModelViewSet):
                 custom_start_date = datetime.strptime(custom_start, "%Y-%m-%d").date()
                 custom_end_date = datetime.strptime(custom_end, "%Y-%m-%d").date()
                 if custom_start_date > custom_end_date:
-                    raise ValidationError("La fecha de inicio no puede ser posterior a la fecha de fin.")
+                    raise ValidationError(
+                        "La fecha de inicio no puede ser posterior a la fecha de fin."
+                    )
                 # Asigna zona horaria
-                custom_start_dt = timezone.make_aware(datetime.combine(custom_start_date, datetime.min.time()), timezone.get_current_timezone())
-                custom_end_dt = timezone.make_aware(datetime.combine(custom_end_date, datetime.max.time()), timezone.get_current_timezone())
+                custom_start_dt = timezone.make_aware(
+                    datetime.combine(custom_start_date, datetime.min.time()),
+                    timezone.get_current_timezone(),
+                )
+                custom_end_dt = timezone.make_aware(
+                    datetime.combine(custom_end_date, datetime.max.time()),
+                    timezone.get_current_timezone(),
+                )
                 date_ranges["custom"] = {"start": custom_start_dt, "end": custom_end_dt}
             except ValueError:
                 raise ValidationError("Formato de fecha inválido. Use YYYY-MM-DD.")
 
         # Obtener product_slug si se proporciona
-        product_slug = request.query_params.get('product_slug')
+        product_slug = request.query_params.get("product_slug")
         product = None
         if product_slug:
             product = get_object_or_404(Product, slug=product_slug)
 
         # Subquery para obtener el último estado de cada venta
-        latest_state_subquery = StateChange.objects.filter(
-            sale=OuterRef('pk')
-        ).order_by('-start_date').values('state')[:1]
+        latest_state_subquery = (
+            StateChange.objects.filter(sale=OuterRef("pk"))
+            .order_by("-start_date")
+            .values("state")[:1]
+        )
 
         statistics = {}
 
@@ -494,29 +567,33 @@ class SaleViewSet(ModelViewSet):
             end = range_dates["end"]
 
             # Filtrar ventas activas dentro del rango y con estado 'COBRADA'
-            sales_qs = Sale.objects.filter(
-                date__gte=start,
-                date__lte=end,
-                is_active=True
-            ).annotate(
-                latest_state=Subquery(latest_state_subquery)
-            ).filter(
-                latest_state=StateChange.COBRADA
+            sales_qs = (
+                Sale.objects.filter(date__gte=start, date__lte=end, is_active=True)
+                .annotate(latest_state=Subquery(latest_state_subquery))
+                .filter(latest_state=StateChange.COBRADA)
             )
 
             total_sales_count = sales_qs.count()
-            total_sales_amount = sales_qs.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+            total_sales_amount = sales_qs.aggregate(total=Sum("total"))[
+                "total"
+            ] or Decimal("0.00")
 
             # Filtrar devoluciones dentro del rango
             returns_qs = Return.objects.filter(date__gte=start, date__lte=end)
-            total_returns_amount = returns_qs.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+            total_returns_amount = returns_qs.aggregate(total=Sum("total"))[
+                "total"
+            ] or Decimal("0.00")
 
             # Ingresos netos
-            net_revenue = (total_sales_amount - total_returns_amount).quantize(Decimal('0.01'))
+            net_revenue = (total_sales_amount - total_returns_amount).quantize(
+                Decimal("0.01")
+            )
 
             # Filtrar gastos dentro del rango
             expenses_qs = Expense.objects.filter(date__gte=start, date__lte=end)
-            total_expenses = expenses_qs.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+            total_expenses = expenses_qs.aggregate(total=Sum("amount"))[
+                "total"
+            ] or Decimal("0.00")
 
             # Detalles de ventas para productos más vendidos
             sale_details_qs = SaleDetail.objects.filter(
@@ -527,20 +604,19 @@ class SaleViewSet(ModelViewSet):
 
             if product:
                 total_product_sold = sale_details_qs.aggregate(
-                    total_quantity=Sum('quantity')
-                )['total_quantity'] or Decimal('0.00')
+                    total_quantity=Sum("quantity")
+                )["total_quantity"] or Decimal("0.00")
             else:
-                most_sold_products = sale_details_qs.values(
-                    'product__name',
-                    'product__slug'
-                ).annotate(
-                    total_quantity=Sum('quantity')
-                ).order_by('-total_quantity')[:5]
+                most_sold_products = (
+                    sale_details_qs.values("product__name", "product__slug")
+                    .annotate(total_quantity=Sum("quantity"))
+                    .order_by("-total_quantity")[:5]
+                )
                 most_sold_products = [
                     {
-                        "product_name": item['product__name'],
-                        "product_slug": item['product__slug'],
-                        "total_quantity_sold": item['total_quantity']
+                        "product_name": item["product__name"],
+                        "product_slug": item["product__slug"],
+                        "total_quantity_sold": item["total_quantity"],
                     }
                     for item in most_sold_products
                 ]
@@ -557,23 +633,24 @@ class SaleViewSet(ModelViewSet):
             if period_name != "custom":
                 # ====== Agregar Desglose Diario ======
                 # Agrupar ventas por fecha
-                sales_daily = sales_qs.annotate(
-                    date_only=TruncDate('date')
-                ).values('date_only').annotate(
-                    sales_count=Count('id'),
-                    total_sales=Sum('total')
-                ).order_by('date_only')
+                sales_daily = (
+                    sales_qs.annotate(date_only=TruncDate("date"))
+                    .values("date_only")
+                    .annotate(sales_count=Count("id"), total_sales=Sum("total"))
+                    .order_by("date_only")
+                )
 
                 # Agrupar devoluciones por fecha
-                returns_daily = returns_qs.annotate(
-                    date_only=TruncDate('date')
-                ).values('date_only').annotate(
-                    total_returns=Sum('total')
-                ).order_by('date_only')
+                returns_daily = (
+                    returns_qs.annotate(date_only=TruncDate("date"))
+                    .values("date_only")
+                    .annotate(total_returns=Sum("total"))
+                    .order_by("date_only")
+                )
 
                 # Convertir a diccionarios para fácil acceso
-                sales_daily_dict = {item['date_only']: item for item in sales_daily}
-                returns_daily_dict = {item['date_only']: item for item in returns_daily}
+                sales_daily_dict = {item["date_only"]: item for item in sales_daily}
+                returns_daily_dict = {item["date_only"]: item for item in returns_daily}
 
                 # Generar una lista de fechas en el rango
                 current_date = start.date()
@@ -582,18 +659,22 @@ class SaleViewSet(ModelViewSet):
                 while current_date <= end_date:
                     sales_data = sales_daily_dict.get(current_date, {})
                     returns_data = returns_daily_dict.get(current_date, {})
-                    sales_count = sales_data.get('sales_count', 0)
-                    total_sales = sales_data.get('total_sales', Decimal('0.00'))
-                    total_returns = returns_data.get('total_returns', Decimal('0.00'))
-                    net_collected = (total_sales - total_returns).quantize(Decimal('0.01'))
+                    sales_count = sales_data.get("sales_count", 0)
+                    total_sales = sales_data.get("total_sales", Decimal("0.00"))
+                    total_returns = returns_data.get("total_returns", Decimal("0.00"))
+                    net_collected = (total_sales - total_returns).quantize(
+                        Decimal("0.01")
+                    )
 
-                    daily_breakdown.append({
-                        "date": current_date.isoformat(),
-                        "sales_count": sales_count,
-                        "total_collected": str(total_sales),
-                        "total_returns": str(total_returns),
-                        "net_collected": str(net_collected),
-                    })
+                    daily_breakdown.append(
+                        {
+                            "date": current_date.isoformat(),
+                            "sales_count": sales_count,
+                            "total_collected": str(total_sales),
+                            "total_returns": str(total_returns),
+                            "net_collected": str(net_collected),
+                        }
+                    )
 
                     current_date += timedelta(days=1)
 
