@@ -395,6 +395,7 @@ class TestSaleAPI:
         self.list_url = reverse("api:sales-list")
 
     def test_sale_create_as_admin(self, api_client, admin_user, sale_data, customer, product):
+        """Test creating a sale as an admin user."""
         api_client.force_authenticate(user=admin_user)
         sale_data_api = {
             "customer": customer.id,
@@ -414,6 +415,7 @@ class TestSaleAPI:
         assert sale.sale_details.count() == 1
 
     def test_sale_create_as_seller(self, api_client, seller_user, sale_data, customer, product):
+        """Test creating a sale as a seller user."""
         api_client.force_authenticate(user=seller_user)
         sale_data_api = {
             "customer": customer.id,
@@ -430,6 +432,7 @@ class TestSaleAPI:
         assert Sale.objects.count() == 1
 
     def test_sale_create_unauthenticated(self, api_client, sale_data):
+        """Test creating a sale without authentication."""
         sale_data_api = {
             "customer": sale_data["customer"].id,
             "sale_type": sale_data["sale_type"],
@@ -441,6 +444,7 @@ class TestSaleAPI:
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_sale_list(self, api_client, admin_user, sale):
+        """Test listing sales as an admin user."""
         api_client.force_authenticate(user=admin_user)
         response = api_client.get(self.list_url)
         assert response.status_code == status.HTTP_200_OK
@@ -448,6 +452,7 @@ class TestSaleAPI:
         assert response.data['results'][0]['id'] == sale.id
 
     def test_sale_retrieve(self, api_client, admin_user, sale):
+        """Test retrieving a sale as an admin user."""
         api_client.force_authenticate(user=admin_user)
         url = reverse("api:sales-detail", args=[sale.id])
         response = api_client.get(url)
@@ -455,6 +460,7 @@ class TestSaleAPI:
         assert response.data["id"] == sale.id
 
     def test_sale_update(self, api_client, admin_user, sale, product, customer):
+        """Test updating a sale as an admin user."""
         api_client.force_authenticate(user=admin_user)
         url = reverse("api:sales-detail", args=[sale.id])
         updated_data = {
@@ -477,6 +483,7 @@ class TestSaleAPI:
         assert sale.sale_details.first().quantity == Decimal("3.0")
 
     def test_sale_partial_update(self, api_client, admin_user, sale):
+        """Test partially updating a sale as an admin user."""
         api_client.force_authenticate(user=admin_user)
         url = reverse("api:sales-detail", args=[sale.id])
         response = api_client.patch(url, data={"needs_delivery": True}, format='json')
@@ -485,6 +492,7 @@ class TestSaleAPI:
         assert sale.needs_delivery is True
 
     def test_sale_delete_as_admin(self, api_client, admin_user, sale):
+        """Test deleting a sale as an admin user."""
         api_client.force_authenticate(user=admin_user)
         url = reverse("api:sales-detail", args=[sale.id])
         response = api_client.delete(url)
@@ -493,24 +501,28 @@ class TestSaleAPI:
         assert not sale.is_active
 
     def test_sale_delete_as_seller(self, api_client, seller_user, sale):
+        """Test deleting a sale as a seller user."""
         api_client.force_authenticate(user=seller_user)
         url = reverse("api:sales-detail", args=[sale.id])
         response = api_client.delete(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_sale_filter_by_total_range(self, api_client, admin_user, sale):
+        """Test filtering sales by total range."""
         api_client.force_authenticate(user=admin_user)
         response = api_client.get(self.list_url, {"min_total": "5.00", "max_total": "15.00"})
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data['results']) == 1
 
     def test_sale_filter_by_state(self, api_client, admin_user, sale, state_change):
+        """Test filtering sales by state."""
         api_client.force_authenticate(user=admin_user)
         response = api_client.get(self.list_url, {"state": state_change.state})
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data['results']) == 1
 
     def test_sale_mark_as_delivered(self, api_client, delivery_user, sale, state_change):
+        """Test marking a sale as delivered."""
         api_client.force_authenticate(user=delivery_user)
         url = reverse("api:sales-mark-as-delivered", args=[sale.id])
         response = api_client.post(url)
@@ -520,6 +532,7 @@ class TestSaleAPI:
         assert new_state == StateChange.ENTREGADA
 
     def test_sale_mark_as_charged(self, api_client, delivery_user, sale, state_change):
+        """Test marking a sale as charged."""
         api_client.force_authenticate(user=delivery_user)
         url = reverse("api:sales-mark-as-charged", args=[sale.id])
         response = api_client.post(url)
@@ -529,6 +542,7 @@ class TestSaleAPI:
         assert new_state == StateChange.COBRADA
 
     def test_sale_statistics(self, api_client, admin_user, sale, state_change):
+        """Test retrieving sales statistics."""
         api_client.force_authenticate(user=admin_user)
         url = reverse("api:sales-statistics")
         response = api_client.get(url)
@@ -536,6 +550,7 @@ class TestSaleAPI:
         assert "statistics" in response.data
 
     def test_sale_create_fast_sale(self, api_client, admin_user, customer):
+        """Test creating a fast sale."""
         api_client.force_authenticate(user=admin_user)
         fast_sale_data = {
             "customer": customer.id,
@@ -551,6 +566,7 @@ class TestSaleAPI:
         assert sale.total_collected == Decimal("50.00")
 
     def test_sale_update_fast_sale(self, api_client, admin_user, sale, customer):
+        """Test updating a fast sale."""
         api_client.force_authenticate(user=admin_user)
         fast_sale_update_data = {
             "customer": customer.id,
@@ -565,6 +581,7 @@ class TestSaleAPI:
         assert sale.payment_method == Sale.TARJETA
 
     def test_sale_cancel(self, api_client, seller_user, sale, state_change):
+        """Test cancelling a sale."""
         api_client.force_authenticate(user=seller_user)
         url = reverse("api:sales-cancel", args=[sale.id])
         response = api_client.post(url)
@@ -581,6 +598,7 @@ class TestReturnAPI:
         self.list_url = reverse("api:returns-list")
 
     def test_return_create_as_admin(self, api_client, admin_user, return_data, product):
+        """Test creating a return as an admin user."""
         api_client.force_authenticate(user=admin_user)
         return_data_api = {
             "sale": return_data["sale"].id,
@@ -597,6 +615,7 @@ class TestReturnAPI:
         assert return_order.return_details.count() == 1
 
     def test_return_create_as_seller(self, api_client, seller_user, return_data, product):
+        """Test creating a return as a seller user."""
         api_client.force_authenticate(user=seller_user)
         return_data_api = {
             "sale": return_data["sale"].id,
@@ -610,6 +629,7 @@ class TestReturnAPI:
         assert Return.objects.count() == 1
 
     def test_return_create_unauthenticated(self, api_client, return_data):
+        """Test creating a return without authentication."""
         return_data_api = {
             "sale": return_data["sale"].id,
             "return_details": [],
@@ -618,6 +638,7 @@ class TestReturnAPI:
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_return_list(self, api_client, admin_user, return_order):
+        """Test listing returns as an admin user."""
         api_client.force_authenticate(user=admin_user)
         response = api_client.get(self.list_url)
         assert response.status_code == status.HTTP_200_OK
@@ -625,6 +646,7 @@ class TestReturnAPI:
         assert response.data['results'][0]['id'] == return_order.id
 
     def test_return_retrieve(self, api_client, admin_user, return_order):
+        """Test retrieving a return as an admin user."""
         api_client.force_authenticate(user=admin_user)
         url = reverse("api:returns-detail", args=[return_order.id])
         response = api_client.get(url)
@@ -632,6 +654,7 @@ class TestReturnAPI:
         assert response.data["id"] == return_order.id
 
     def test_return_update(self, api_client, admin_user, return_order, product):
+        """Test updating a return as an admin user."""
         api_client.force_authenticate(user=admin_user)
         url = reverse("api:returns-detail", args=[return_order.id])
         updated_data = {
@@ -647,15 +670,25 @@ class TestReturnAPI:
         assert return_order.return_details.count() == 1
         assert return_order.return_details.first().quantity == Decimal("2.0")
 
-    def test_return_partial_update(self, api_client, admin_user, return_order):
+    def test_return_partial_update(self, api_client, admin_user, return_order, return_detail, product):
+        """Test partially updating a return as an admin user by modifying return_details."""
         api_client.force_authenticate(user=admin_user)
         url = reverse("api:returns-detail", args=[return_order.id])
-        response = api_client.patch(url, data={"total": "3.00"}, format='json')
+        updated_data = {
+            "return_details": [{
+                "id": return_detail.id,
+                "quantity": "3.00"
+            }]
+        }
+        response = api_client.patch(url, data=updated_data, format='json')
+        print(response.data)
         assert response.status_code == status.HTTP_200_OK
         return_order.refresh_from_db()
-        assert return_order.total == Decimal("3.00")
+        expected_total = return_detail.price * Decimal("3.00")
+        assert return_order.total == expected_total
 
     def test_return_delete_as_admin(self, api_client, admin_user, return_order):
+        """Test deleting a return as an admin user."""
         api_client.force_authenticate(user=admin_user)
         url = reverse("api:returns-detail", args=[return_order.id])
         response = api_client.delete(url)
@@ -664,30 +697,40 @@ class TestReturnAPI:
         assert not return_order.is_active
 
     def test_return_delete_as_seller(self, api_client, seller_user, return_order):
+        """Test deleting a return as a seller user."""
         api_client.force_authenticate(user=seller_user)
         url = reverse("api:returns-detail", args=[return_order.id])
         response = api_client.delete(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_return_filter_by_customer(self, api_client, admin_user, return_order, customer):
+        """Test filtering returns by customer."""
         api_client.force_authenticate(user=admin_user)
-        response = api_client.get(self.list_url, {"customer": customer.id})
+        customer_id = return_order.sale.customer.id
+        response = api_client.get(self.list_url, {"customer": customer_id})
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data['results']) == 1
 
     def test_return_search(self, api_client, admin_user, return_order, customer):
+        """Test searching returns by customer name."""
         api_client.force_authenticate(user=admin_user)
-        response = api_client.get(self.list_url, {"search": customer.name})
+        print("*" * 100)
+        customer_name = return_order.sale.customer.name
+        print(customer_name)
+        print("*" * 100)
+        response = api_client.get(self.list_url, {"search": customer_name})
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data['results']) == 1
 
     def test_return_ordering(self, api_client, admin_user, return_order):
+        """Test ordering returns by date."""
         api_client.force_authenticate(user=admin_user)
         response = api_client.get(self.list_url, {"ordering": "-date"})
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data['results']) == 1
 
     def test_return_permissions_create(self, api_client, return_data):
+        """Test creating a return without permissions."""
         return_data_api = {
             "sale": return_data["sale"].id,
             "return_details": [],
@@ -696,16 +739,19 @@ class TestReturnAPI:
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_return_permissions_list(self, api_client):
+        """Test listing returns without permissions."""
         response = api_client.get(self.list_url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_return_permissions_update(self, api_client, return_data):
+        """Test updating a return without permissions."""
         return_order = Return.objects.create(**return_data)
         url = reverse("api:returns-detail", args=[return_order.id])
         response = api_client.put(url, data={}, format='json')
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_return_permissions_delete(self, api_client, return_data):
+        """Test deleting a return without permissions."""
         return_order = Return.objects.create(**return_data)
         url = reverse("api:returns-detail", args=[return_order.id])
         response = api_client.delete(url)
@@ -736,6 +782,7 @@ class TestFastSaleAPI:
         }
 
     def test_create_fast_sale_as_admin(self, api_client, admin_user, fast_sale_data):
+        """Test creating a fast sale as an admin user."""
         api_client.force_authenticate(user=admin_user)
         url = reverse("api:sales-create-fast-sale")
         response = api_client.post(url, data=fast_sale_data, format='json')
@@ -746,6 +793,7 @@ class TestFastSaleAPI:
         assert sale.payment_method == Sale.TRANSFERENCIA
 
     def test_create_fast_sale_as_seller(self, api_client, seller_user, fast_sale_data):
+        """Test creating a fast sale as a seller user."""
         api_client.force_authenticate(user=seller_user)
         url = reverse("api:sales-create-fast-sale")
         response = api_client.post(url, data=fast_sale_data, format='json')
@@ -753,11 +801,13 @@ class TestFastSaleAPI:
         assert Sale.objects.count() == 1
 
     def test_create_fast_sale_unauthenticated(self, api_client, fast_sale_data):
+        """Test creating a fast sale without authentication."""
         url = reverse("api:sales-create-fast-sale")
         response = api_client.post(url, data=fast_sale_data, format='json')
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_update_fast_sale_as_admin(self, api_client, admin_user, sale, fast_sale_data):
+        """Test updating a fast sale as an admin user."""
         api_client.force_authenticate(user=admin_user)
         fast_sale_update_data = {
             "customer": fast_sale_data["customer"],
@@ -772,6 +822,7 @@ class TestFastSaleAPI:
         assert sale.payment_method == Sale.TARJETA
 
     def test_update_fast_sale_as_seller(self, api_client, seller_user, sale, fast_sale_data):
+        """Test updating a fast sale as a seller user."""
         api_client.force_authenticate(user=seller_user)
         fast_sale_update_data = {
             "customer": fast_sale_data["customer"],
@@ -780,12 +831,14 @@ class TestFastSaleAPI:
         }
         url = reverse("api:sales-update-fast-sale", args=[sale.id])
         response = api_client.put(url, data=fast_sale_update_data, format='json')
+        print(response.data)
         assert response.status_code == status.HTTP_200_OK
         sale.refresh_from_db()
         assert sale.total == Decimal("150.00")
         assert sale.payment_method == Sale.TARJETA
 
     def test_update_fast_sale_unauthenticated(self, api_client, sale, fast_sale_data):
+        """Test updating a fast sale without authentication."""
         fast_sale_update_data = {
             "customer": fast_sale_data["customer"],
             "total": "150.00",
