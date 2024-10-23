@@ -136,13 +136,13 @@ class TestUserAPI:
     def test_create_user_with_invalid_data(self, api_client_authenticated_admin):
         """Test creating a user with invalid data."""
         data = {
-            "username": "",  # Empty username
-            "password": "short",  # Password too short
+            "username": "",
+            "password": "short",
             "first_name": "Invalid",
             "last_name": "User",
-            "email": "invalid-email",  # Invalid email format
-            "phone_number": "123",  # Invalid phone number
-            "user_type": "INVALID_TYPE",  # Invalid user type
+            "email": "invalid-email",
+            "phone_number": "123",
+            "user_type": "INVALID_TYPE",
         }
 
         response = api_client_authenticated_admin.post(CREATE_USER_URL, data)
@@ -156,7 +156,7 @@ class TestUserAPI:
     def test_create_user_duplicate_username(self, api_client_authenticated_admin, user):
         """Test creating a user with a duplicate username."""
         data = {
-            "username": user.username,  # Username already exists
+            "username": user.username,
             "password": "DuplicatePass123",
             "first_name": "Duplicate",
             "last_name": "User",
@@ -175,7 +175,7 @@ class TestUserAPI:
             "password": "UniquePass123",
             "first_name": "Unique",
             "last_name": "User",
-            "email": user.email,  # Email already exists
+            "email": user.email,
             "phone_number": "+19876543213",
             "user_type": "SELLER",
         }
@@ -206,7 +206,7 @@ class TestUserAPI:
         }
 
         response = api_client.post(LOGIN_URL, data)
-        assert response.status_code == status.HTTP_400_BAD_REQUEST  # Cambiar a 403
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "non_field_errors" in response.data
 
     def test_login_with_invalid_credentials(self, api_client):
@@ -236,7 +236,7 @@ class TestUserAPI:
         """Test that an admin can list all users."""
         response = api_client_authenticated_admin.get(LIST_USERS_URL)
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) == User.objects.filter(is_active=True).count()
+        assert response.data["count"] == User.objects.filter(is_active=True).count()
 
     def test_list_users_as_non_admin(self, api_client_authenticated_seller):
         """Test that a non-admin user cannot list all users."""
@@ -296,7 +296,7 @@ class TestUserAPI:
         response = api_client_authenticated_seller.patch(url, update_data)
         print(response.data)
         print(response.status_code)
-        assert response.status_code == status.HTTP_403_FORBIDDEN  # Cambiar a 403
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_soft_delete_user_as_admin(self, api_client_authenticated_admin, user):
         """Test that an admin can soft delete a user."""
@@ -327,7 +327,7 @@ class TestUserAPI:
         }
 
         response = api_client.post(LOGIN_URL, data)
-        assert response.status_code == status.HTTP_400_BAD_REQUEST  # Cambiar a 403
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "non_field_errors" in response.data
 
 
@@ -378,7 +378,7 @@ class TestUserPermissions:
         response = api_client_authenticated_admin.get(LIST_USERS_URL)
         assert response.status_code == status.HTTP_200_OK
         active_users_count = User.objects.filter(is_active=True).count()
-        assert len(response.data) == active_users_count
+        assert response.data["count"] == active_users_count
 
     def test_seller_cannot_list_users(self, api_client_authenticated_seller):
         """Test that a seller cannot list all users."""
@@ -387,16 +387,13 @@ class TestUserPermissions:
 
     def test_non_authenticated_user_cannot_access_protected_endpoints(self, api_client, user):
         """Test that unauthenticated users cannot access protected endpoints."""
-        # Attempt to list users
         response = api_client.get(LIST_USERS_URL)
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-        # Attempt to retrieve a user
         url = USER_DETAIL_URL(user.username)
         response = api_client.get(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-        # Attempt to create a user
         data = {
             "username": "unauthuser",
             "password": "UnauthPass123",
@@ -411,13 +408,11 @@ class TestUserPermissions:
 
     def test_only_admin_can_delete_user(self, api_client_authenticated_admin, api_client_authenticated_seller, user):
         """Test that only an admin can delete a user."""
-        # Admin deletes the user
         admin_response = api_client_authenticated_admin.delete(USER_DETAIL_URL(user.username))
         assert admin_response.status_code == status.HTTP_204_NO_CONTENT
         user.refresh_from_db()
         assert user.is_active is False
 
-        # Seller attempts to delete another user
         another_user = User.objects.create_user(
             username="anotheruser",
             password="AnotherPass123",
