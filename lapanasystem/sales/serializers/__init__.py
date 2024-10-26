@@ -3,9 +3,10 @@ from .sales import (
     SaleDetailSerializer,
     StateChangeSerializer,
     PartialChargeSerializer,
-    FastSaleSerializer
+    FastSaleSerializer,
 )
 from .returns import ReturnSerializer, ReturnDetailSerializer
+from .standing_orders import StandingOrderSerializer, StandingOrderDetailSerializer
 
 __all__ = [
     "SaleSerializer",
@@ -14,5 +15,7 @@ __all__ = [
     "ReturnSerializer",
     "ReturnDetailSerializer",
     "PartialChargeSerializer",
-    "FastSaleSerializer"
+    "FastSaleSerializer",
+    "StandingOrderSerializer",
+    "StandingOrderDetailSerializer",
 ]

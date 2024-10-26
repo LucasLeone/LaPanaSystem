@@ -1,0 +1,32 @@
+meta {
+  name: Create standing order
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:8000/api/v1/standing-orders/
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Token {{Token}}
+}
+
+body:json {
+  {
+    "customer": 26,
+    "day_of_week": 6,
+    "details": [
+      {
+        "product": 19,
+        "quantity": 7
+      },
+      {
+        "product": 20,
+        "quantity": 1.5
+      }
+    ]
+  }
+}
