@@ -71,12 +71,13 @@ class UserViewSet(
         """Assign permissions based on action."""
         if self.action == "login":
             permission_classes = [AllowAny]
+        elif self.action == "list":
+            permission_classes = [IsAuthenticated]
         elif self.action in [
             "create_user",
             "update",
             "partial_update",
             "retrieve",
-            "list",
             "destroy",
         ]:
             permission_classes = [IsAuthenticated, IsAdmin]

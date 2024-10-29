@@ -5,13 +5,13 @@ meta {
 }
 
 get {
-  url: http://localhost:8000/api/v1/returns/?search=adrianaaa
+  url: http://localhost:8000/api/v1/returns/
   body: none
   auth: none
 }
 
 params:query {
-  search: adrianaaa
+  ~search: adrianaaa
   ~customer: 22
   ~min_total: 3000
   ~max_total: 20200
