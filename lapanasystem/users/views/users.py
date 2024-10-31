@@ -81,7 +81,7 @@ class UserViewSet(
             "destroy",
         ]:
             permission_classes = [IsAuthenticated, IsAdmin]
-        elif self.action in ["profile",]:
+        elif self.action in ["profile", "update_profile"]:
             permission_classes = [IsAuthenticated, IsRequestUser]
         else:
             permission_classes = [IsAuthenticated]
@@ -141,5 +141,15 @@ class UserViewSet(
     def profile(self, request):
         """Return user's profile."""
         user = request.user
+        data = UserSerializer(user).data
+        return Response(data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["patch"], url_path="update-profile")
+    def update_profile(self, request):
+        """Update user's profile."""
+        user = request.user
+        serializer = UserSerializer(user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
         data = UserSerializer(user).data
         return Response(data, status=status.HTTP_200_OK)
