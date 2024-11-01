@@ -573,10 +573,15 @@ class SaleViewSet(ModelViewSet):
                 .filter(latest_state=StateChange.COBRADA)
             )
 
-            total_sales_count = sales_qs.count()
-            total_sales_amount = sales_qs.aggregate(total=Sum("total"))[
-                "total"
-            ] or Decimal("0.00")
+            # Calcular total_sales: suma de todos los montos de ventas
+            total_sales_amount = sales_qs.aggregate(
+                total_sales=Sum("total")
+            )["total_sales"] or Decimal("0.00")
+
+            # Cambiar agregación de 'total' a 'total_collected'
+            total_collected_amount = sales_qs.aggregate(
+                total_collected=Sum("total_collected")
+            )["total_collected"] or Decimal("0.00")
 
             # Filtrar devoluciones dentro del rango
             returns_qs = Return.objects.filter(date__gte=start, date__lte=end)
@@ -584,16 +589,14 @@ class SaleViewSet(ModelViewSet):
                 "total"
             ] or Decimal("0.00")
 
-            # Ingresos netos
-            net_revenue = (total_sales_amount - total_returns_amount).quantize(
-                Decimal("0.01")
-            )
-
             # Filtrar gastos dentro del rango
             expenses_qs = Expense.objects.filter(date__gte=start, date__lte=end)
             total_expenses = expenses_qs.aggregate(total=Sum("amount"))[
                 "total"
             ] or Decimal("0.00")
+
+            # Calcular ganancias totales
+            total_profit = (total_collected_amount - total_returns_amount - total_expenses).quantize(Decimal("0.01"))
 
             # Detalles de ventas para productos más vendidos
             sale_details_qs = SaleDetail.objects.filter(
@@ -622,11 +625,12 @@ class SaleViewSet(ModelViewSet):
                 ]
 
             period_stats = {
-                "total_sales_count": total_sales_count,
-                "total_sales_amount": str(total_sales_amount),
+                "total_sales_count": sales_qs.count(),
+                "total_sales": str(total_sales_amount),  # <-- Agregado aquí
+                "total_collected_amount": str(total_collected_amount),
                 "total_returns_amount": str(total_returns_amount),
-                "net_revenue": str(net_revenue),
                 "total_expenses": str(total_expenses),
+                "total_profit": str(total_profit),
             }
 
             # Solo agregar 'daily_breakdown' si el periodo no es 'custom'
@@ -636,7 +640,7 @@ class SaleViewSet(ModelViewSet):
                 sales_daily = (
                     sales_qs.annotate(date_only=TruncDate("date"))
                     .values("date_only")
-                    .annotate(sales_count=Count("id"), total_sales=Sum("total"))
+                    .annotate(sales_count=Count("id"), total_collected=Sum("total_collected"), total_sales=Sum("total"))
                     .order_by("date_only")
                 )
 
@@ -648,9 +652,18 @@ class SaleViewSet(ModelViewSet):
                     .order_by("date_only")
                 )
 
+                # Agrupar gastos por fecha
+                expenses_daily = (
+                    expenses_qs.annotate(date_only=TruncDate("date"))
+                    .values("date_only")
+                    .annotate(total_expenses=Sum("amount"))
+                    .order_by("date_only")
+                )
+
                 # Convertir a diccionarios para fácil acceso
                 sales_daily_dict = {item["date_only"]: item for item in sales_daily}
                 returns_daily_dict = {item["date_only"]: item for item in returns_daily}
+                expenses_daily_dict = {item["date_only"]: item for item in expenses_daily}
 
                 # Generar una lista de fechas en el rango
                 current_date = start.date()
@@ -659,10 +672,18 @@ class SaleViewSet(ModelViewSet):
                 while current_date <= end_date:
                     sales_data = sales_daily_dict.get(current_date, {})
                     returns_data = returns_daily_dict.get(current_date, {})
+                    expenses_data = expenses_daily_dict.get(current_date, {})
                     sales_count = sales_data.get("sales_count", 0)
                     total_sales = sales_data.get("total_sales", Decimal("0.00"))
+                    total_collected = sales_data.get("total_collected", Decimal("0.00"))
                     total_returns = returns_data.get("total_returns", Decimal("0.00"))
-                    net_collected = (total_sales - total_returns).quantize(
+                    daily_expenses_amount = expenses_data.get("total_expenses", Decimal("0.00"))
+                    net_collected = (total_collected - total_returns).quantize(
+                        Decimal("0.01")
+                    )
+
+                    # Calcular las ganancias diarias
+                    daily_profit = (total_collected - total_returns - daily_expenses_amount).quantize(
                         Decimal("0.01")
                     )
 
@@ -670,9 +691,12 @@ class SaleViewSet(ModelViewSet):
                         {
                             "date": current_date.isoformat(),
                             "sales_count": sales_count,
-                            "total_collected": str(total_sales),
+                            "total_sales": str(total_sales),  # <-- Agregado aquí
+                            "total_collected": str(total_collected),
                             "total_returns": str(total_returns),
                             "net_collected": str(net_collected),
+                            "daily_expenses": str(daily_expenses_amount),  # Opcional: agregar gastos diarios
+                            "daily_profit": str(daily_profit),              # Opcional: agregar ganancias diarias
                         }
                     )
 
