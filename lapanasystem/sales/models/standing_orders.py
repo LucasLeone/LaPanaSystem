@@ -13,6 +13,7 @@ from lapanasystem.utils.models import LPSModel
 
 class StandingOrder(LPSModel):
     """Standing order model."""
+
     MONDAY = 0
     TUESDAY = 1
     WEDNESDAY = 2
@@ -45,6 +46,7 @@ class StandingOrder(LPSModel):
 
 class StandingOrderDetail(LPSModel):
     """Standing order detail model."""
+
     standing_order = models.ForeignKey(
         StandingOrder, on_delete=models.CASCADE, related_name='details'
     )

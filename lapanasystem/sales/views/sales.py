@@ -468,12 +468,10 @@ class SaleViewSet(ModelViewSet):
             Response: A response containing the sales statistics.
         """
 
-        # Helper function to get date ranges
         def get_date_ranges():
             today = timezone.now().date()
             current_timezone = timezone.get_current_timezone()
 
-            # Inicio y fin del día de hoy
             start_of_today = timezone.make_aware(
                 datetime.combine(today, datetime.min.time()), current_timezone
             )
@@ -481,7 +479,6 @@ class SaleViewSet(ModelViewSet):
                 datetime.combine(today, datetime.max.time()), current_timezone
             )
 
-            # Inicio y fin de la semana (lunes a domingo)
             start_of_week = timezone.make_aware(
                 datetime.combine(
                     today - timedelta(days=today.weekday()), datetime.min.time()
@@ -495,7 +492,6 @@ class SaleViewSet(ModelViewSet):
                 current_timezone,
             )
 
-            # Inicio y fin del mes
             start_of_month = timezone.make_aware(
                 datetime.combine(today.replace(day=1), datetime.min.time()),
                 current_timezone,
@@ -521,20 +517,17 @@ class SaleViewSet(ModelViewSet):
 
         date_ranges = get_date_ranges()
 
-        # Parse custom date range si se proporciona
         custom_start = request.query_params.get("start_date")
         custom_end = request.query_params.get("end_date")
 
         if custom_start and custom_end:
             try:
-                # Parse fechas sin zona horaria
                 custom_start_date = datetime.strptime(custom_start, "%Y-%m-%d").date()
                 custom_end_date = datetime.strptime(custom_end, "%Y-%m-%d").date()
                 if custom_start_date > custom_end_date:
                     raise ValidationError(
                         "La fecha de inicio no puede ser posterior a la fecha de fin."
                     )
-                # Asigna zona horaria
                 custom_start_dt = timezone.make_aware(
                     datetime.combine(custom_start_date, datetime.min.time()),
                     timezone.get_current_timezone(),
@@ -547,13 +540,11 @@ class SaleViewSet(ModelViewSet):
             except ValueError:
                 raise ValidationError("Formato de fecha inválido. Use YYYY-MM-DD.")
 
-        # Obtener product_slug si se proporciona
         product_slug = request.query_params.get("product_slug")
         product = None
         if product_slug:
             product = get_object_or_404(Product, slug=product_slug)
 
-        # Subquery para obtener el último estado de cada venta
         latest_state_subquery = (
             StateChange.objects.filter(sale=OuterRef("pk"))
             .order_by("-start_date")
@@ -566,39 +557,32 @@ class SaleViewSet(ModelViewSet):
             start = range_dates["start"]
             end = range_dates["end"]
 
-            # Filtrar ventas activas dentro del rango y con estado 'COBRADA'
             sales_qs = (
                 Sale.objects.filter(date__gte=start, date__lte=end, is_active=True)
                 .annotate(latest_state=Subquery(latest_state_subquery))
                 .filter(latest_state=StateChange.COBRADA)
             )
 
-            # Calcular total_sales: suma de todos los montos de ventas
             total_sales_amount = sales_qs.aggregate(
                 total_sales=Sum("total")
             )["total_sales"] or Decimal("0.00")
 
-            # Cambiar agregación de 'total' a 'total_collected'
             total_collected_amount = sales_qs.aggregate(
                 total_collected=Sum("total_collected")
             )["total_collected"] or Decimal("0.00")
 
-            # Filtrar devoluciones dentro del rango
             returns_qs = Return.objects.filter(date__gte=start, date__lte=end)
             total_returns_amount = returns_qs.aggregate(total=Sum("total"))[
                 "total"
             ] or Decimal("0.00")
 
-            # Filtrar gastos dentro del rango
             expenses_qs = Expense.objects.filter(date__gte=start, date__lte=end)
             total_expenses = expenses_qs.aggregate(total=Sum("amount"))[
                 "total"
             ] or Decimal("0.00")
 
-            # Calcular ganancias totales
             total_profit = (total_collected_amount - total_returns_amount - total_expenses).quantize(Decimal("0.01"))
 
-            # Detalles de ventas para productos más vendidos
             sale_details_qs = SaleDetail.objects.filter(
                 sale__in=sales_qs,
             )
@@ -626,17 +610,14 @@ class SaleViewSet(ModelViewSet):
 
             period_stats = {
                 "total_sales_count": sales_qs.count(),
-                "total_sales": str(total_sales_amount),  # <-- Agregado aquí
+                "total_sales": str(total_sales_amount),
                 "total_collected_amount": str(total_collected_amount),
                 "total_returns_amount": str(total_returns_amount),
                 "total_expenses": str(total_expenses),
                 "total_profit": str(total_profit),
             }
 
-            # Solo agregar 'daily_breakdown' si el periodo no es 'custom'
             if period_name != "custom":
-                # ====== Agregar Desglose Diario ======
-                # Agrupar ventas por fecha
                 sales_daily = (
                     sales_qs.annotate(date_only=TruncDate("date"))
                     .values("date_only")
@@ -644,7 +625,6 @@ class SaleViewSet(ModelViewSet):
                     .order_by("date_only")
                 )
 
-                # Agrupar devoluciones por fecha
                 returns_daily = (
                     returns_qs.annotate(date_only=TruncDate("date"))
                     .values("date_only")
@@ -652,7 +632,6 @@ class SaleViewSet(ModelViewSet):
                     .order_by("date_only")
                 )
 
-                # Agrupar gastos por fecha
                 expenses_daily = (
                     expenses_qs.annotate(date_only=TruncDate("date"))
                     .values("date_only")
@@ -660,12 +639,10 @@ class SaleViewSet(ModelViewSet):
                     .order_by("date_only")
                 )
 
-                # Convertir a diccionarios para fácil acceso
                 sales_daily_dict = {item["date_only"]: item for item in sales_daily}
                 returns_daily_dict = {item["date_only"]: item for item in returns_daily}
                 expenses_daily_dict = {item["date_only"]: item for item in expenses_daily}
 
-                # Generar una lista de fechas en el rango
                 current_date = start.date()
                 end_date = end.date()
                 daily_breakdown = []
@@ -682,7 +659,6 @@ class SaleViewSet(ModelViewSet):
                         Decimal("0.01")
                     )
 
-                    # Calcular las ganancias diarias
                     daily_profit = (total_collected - total_returns - daily_expenses_amount).quantize(
                         Decimal("0.01")
                     )
@@ -691,18 +667,17 @@ class SaleViewSet(ModelViewSet):
                         {
                             "date": current_date.isoformat(),
                             "sales_count": sales_count,
-                            "total_sales": str(total_sales),  # <-- Agregado aquí
+                            "total_sales": str(total_sales),
                             "total_collected": str(total_collected),
                             "total_returns": str(total_returns),
                             "net_collected": str(net_collected),
-                            "daily_expenses": str(daily_expenses_amount),  # Opcional: agregar gastos diarios
-                            "daily_profit": str(daily_profit),              # Opcional: agregar ganancias diarias
+                            "daily_expenses": str(daily_expenses_amount),
+                            "daily_profit": str(daily_profit),
                         }
                     )
 
                     current_date += timedelta(days=1)
 
-                # Agregar el desglose diario al periodo
                 period_stats["daily_breakdown"] = daily_breakdown
 
             if product:
