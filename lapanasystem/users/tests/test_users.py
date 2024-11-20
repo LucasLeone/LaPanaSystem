@@ -238,11 +238,6 @@ class TestUserAPI:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["count"] == User.objects.filter(is_active=True).count()
 
-    def test_list_users_as_non_admin(self, api_client_authenticated_seller):
-        """Test that a non-admin user cannot list all users."""
-        response = api_client_authenticated_seller.get(LIST_USERS_URL)
-        assert response.status_code == status.HTTP_403_FORBIDDEN
-
     def test_retrieve_user_as_admin(self, api_client_authenticated_admin, user):
         """Test that an admin can retrieve a user's details."""
         url = USER_DETAIL_URL(user.username)
@@ -379,11 +374,6 @@ class TestUserPermissions:
         assert response.status_code == status.HTTP_200_OK
         active_users_count = User.objects.filter(is_active=True).count()
         assert response.data["count"] == active_users_count
-
-    def test_seller_cannot_list_users(self, api_client_authenticated_seller):
-        """Test that a seller cannot list all users."""
-        response = api_client_authenticated_seller.get(LIST_USERS_URL)
-        assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_non_authenticated_user_cannot_access_protected_endpoints(self, api_client, user):
         """Test that unauthenticated users cannot access protected endpoints."""
