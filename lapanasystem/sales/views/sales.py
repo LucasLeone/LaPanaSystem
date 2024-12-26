@@ -3,9 +3,9 @@
 # Django
 from decimal import Decimal
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django.db.models import Sum, OuterRef, Subquery, Count
-from django.db.models.functions import TruncDate, Coalesce
-from django.shortcuts import get_object_or_404
+from django.db.models.functions import TruncDate, Coalesce, TruncMonth
 from django.db import transaction
 
 # Django REST Framework
@@ -24,7 +24,6 @@ from lapanasystem.users.permissions import IsAdmin, IsSeller, IsDelivery
 # Models
 from lapanasystem.sales.models import Sale, StateChange, Return, SaleDetail
 from lapanasystem.expenses.models import Expense
-from lapanasystem.products.models import Product
 
 # Serializers
 from lapanasystem.sales.serializers import (
@@ -37,8 +36,9 @@ from lapanasystem.sales.serializers import (
 from lapanasystem.sales.filters import SaleFilter
 
 # Utilities
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from collections import defaultdict
+from lapanasystem.utils.views import iso_year_week_to_range
 
 
 class SaleViewSet(ModelViewSet):
@@ -456,240 +456,265 @@ class SaleViewSet(ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="statistics")
     def statistics(self, request, *args, **kwargs):
-        """
-        Returns the sales statistics.
-
-        Query Parameters:
-            - start_date: Start date for custom range (YYYY-MM-DD).
-            - end_date: End date for custom range (YYYY-MM-DD).
-            - product_slug: (Optional) Slug of the product to filter sales.
-
-        Returns:
-            Response: A response containing the sales statistics.
-        """
-
-        def get_date_ranges():
-            today = timezone.now().date()
-            current_timezone = timezone.get_current_timezone()
-
-            start_of_today = timezone.make_aware(
-                datetime.combine(today, datetime.min.time()), current_timezone
-            )
-            end_of_today = timezone.make_aware(
-                datetime.combine(today, datetime.max.time()), current_timezone
-            )
-
-            start_of_week = timezone.make_aware(
-                datetime.combine(
-                    today - timedelta(days=today.weekday()), datetime.min.time()
-                ),
-                current_timezone,
-            )
-            end_of_week = timezone.make_aware(
-                datetime.combine(
-                    start_of_week.date() + timedelta(days=6), datetime.max.time()
-                ),
-                current_timezone,
-            )
-
-            start_of_month = timezone.make_aware(
-                datetime.combine(today.replace(day=1), datetime.min.time()),
-                current_timezone,
-            )
-            if today.month == 12:
-                last_day_of_month = today.replace(
-                    year=today.year + 1, month=1, day=1
-                ) - timedelta(days=1)
-            else:
-                last_day_of_month = today.replace(
-                    month=today.month + 1, day=1
-                ) - timedelta(days=1)
-            end_of_month = timezone.make_aware(
-                datetime.combine(last_day_of_month, datetime.max.time()),
-                current_timezone,
-            )
-
-            return {
-                "today": {"start": start_of_today, "end": end_of_today},
-                "week": {"start": start_of_week, "end": end_of_week},
-                "month": {"start": start_of_month, "end": end_of_month},
-            }
-
-        date_ranges = get_date_ranges()
-
-        custom_start = request.query_params.get("start_date")
-        custom_end = request.query_params.get("end_date")
-
-        if custom_start and custom_end:
-            try:
-                custom_start_date = datetime.strptime(custom_start, "%Y-%m-%d").date()
-                custom_end_date = datetime.strptime(custom_end, "%Y-%m-%d").date()
-                if custom_start_date > custom_end_date:
-                    raise ValidationError(
-                        "La fecha de inicio no puede ser posterior a la fecha de fin."
-                    )
-                custom_start_dt = timezone.make_aware(
-                    datetime.combine(custom_start_date, datetime.min.time()),
-                    timezone.get_current_timezone(),
-                )
-                custom_end_dt = timezone.make_aware(
-                    datetime.combine(custom_end_date, datetime.max.time()),
-                    timezone.get_current_timezone(),
-                )
-                date_ranges["custom"] = {"start": custom_start_dt, "end": custom_end_dt}
-            except ValueError:
-                raise ValidationError("Formato de fecha inválido. Use YYYY-MM-DD.")
-
-        product_slug = request.query_params.get("product_slug")
-        product = None
-        if product_slug:
-            product = get_object_or_404(Product, slug=product_slug)
-
+        """Statistics for sales."""
         latest_state_subquery = (
             StateChange.objects.filter(sale=OuterRef("pk"))
             .order_by("-start_date")
             .values("state")[:1]
         )
 
-        statistics = {}
-
-        for period_name, range_dates in date_ranges.items():
-            start = range_dates["start"]
-            end = range_dates["end"]
-
-            sales_qs = (
-                Sale.objects.filter(date__gte=start, date__lte=end, is_active=True)
-                .annotate(latest_state=Subquery(latest_state_subquery))
-                .filter(latest_state=StateChange.COBRADA)
-            )
-
-            total_sales_amount = sales_qs.aggregate(
-                total_sales=Sum("total")
-            )["total_sales"] or Decimal("0.00")
-
-            total_collected_amount = sales_qs.aggregate(
-                total_collected=Sum("total_collected")
-            )["total_collected"] or Decimal("0.00")
-
-            returns_qs = Return.objects.filter(date__gte=start, date__lte=end)
-            total_returns_amount = returns_qs.aggregate(total=Sum("total"))[
-                "total"
-            ] or Decimal("0.00")
-
-            expenses_qs = Expense.objects.filter(date__gte=start, date__lte=end)
-            total_expenses = expenses_qs.aggregate(total=Sum("amount"))[
-                "total"
-            ] or Decimal("0.00")
-
-            total_profit = (total_collected_amount - total_returns_amount - total_expenses).quantize(Decimal("0.01"))
-
-            sale_details_qs = SaleDetail.objects.filter(
-                sale__in=sales_qs,
-            )
-            if product:
-                sale_details_qs = sale_details_qs.filter(product=product)
-
-            if product:
-                total_product_sold = sale_details_qs.aggregate(
-                    total_quantity=Sum("quantity")
-                )["total_quantity"] or Decimal("0.00")
-            else:
-                most_sold_products = (
-                    sale_details_qs.values("product__name", "product__slug")
-                    .annotate(total_quantity=Sum("quantity"))
-                    .order_by("-total_quantity")[:5]
-                )
-                most_sold_products = [
-                    {
-                        "product_name": item["product__name"],
-                        "product_slug": item["product__slug"],
-                        "total_quantity_sold": item["total_quantity"],
-                    }
-                    for item in most_sold_products
-                ]
-
-            period_stats = {
-                "total_sales_count": sales_qs.count(),
-                "total_sales": str(total_sales_amount),
-                "total_collected_amount": str(total_collected_amount),
-                "total_returns_amount": str(total_returns_amount),
-                "total_expenses": str(total_expenses),
-                "total_profit": str(total_profit),
-            }
-
-            if period_name != "custom":
-                sales_daily = (
-                    sales_qs.annotate(date_only=TruncDate("date"))
-                    .values("date_only")
-                    .annotate(sales_count=Count("id"), total_collected=Sum("total_collected"), total_sales=Sum("total"))
-                    .order_by("date_only")
-                )
-
-                returns_daily = (
-                    returns_qs.annotate(date_only=TruncDate("date"))
-                    .values("date_only")
-                    .annotate(total_returns=Sum("total"))
-                    .order_by("date_only")
-                )
-
-                expenses_daily = (
-                    expenses_qs.annotate(date_only=TruncDate("date"))
-                    .values("date_only")
-                    .annotate(total_expenses=Sum("amount"))
-                    .order_by("date_only")
-                )
-
-                sales_daily_dict = {item["date_only"]: item for item in sales_daily}
-                returns_daily_dict = {item["date_only"]: item for item in returns_daily}
-                expenses_daily_dict = {item["date_only"]: item for item in expenses_daily}
-
-                current_date = start.date()
-                end_date = end.date()
-                daily_breakdown = []
-                while current_date <= end_date:
-                    sales_data = sales_daily_dict.get(current_date, {})
-                    returns_data = returns_daily_dict.get(current_date, {})
-                    expenses_data = expenses_daily_dict.get(current_date, {})
-                    sales_count = sales_data.get("sales_count", 0)
-                    total_sales = sales_data.get("total_sales", Decimal("0.00"))
-                    total_collected = sales_data.get("total_collected", Decimal("0.00"))
-                    total_returns = returns_data.get("total_returns", Decimal("0.00"))
-                    daily_expenses_amount = expenses_data.get("total_expenses", Decimal("0.00"))
-                    net_collected = (total_collected - total_returns).quantize(
-                        Decimal("0.01")
-                    )
-
-                    daily_profit = (total_collected - total_returns - daily_expenses_amount).quantize(
-                        Decimal("0.01")
-                    )
-
-                    daily_breakdown.append(
-                        {
-                            "date": current_date.isoformat(),
-                            "sales_count": sales_count,
-                            "total_sales": str(total_sales),
-                            "total_collected": str(total_collected),
-                            "total_returns": str(total_returns),
-                            "net_collected": str(net_collected),
-                            "daily_expenses": str(daily_expenses_amount),
-                            "daily_profit": str(daily_profit),
-                        }
-                    )
-
-                    current_date += timedelta(days=1)
-
-                period_stats["daily_breakdown"] = daily_breakdown
-
-            if product:
-                period_stats["product_slug"] = product_slug
-                period_stats["product_name"] = product.name
-                period_stats["total_quantity_sold"] = str(total_product_sold)
-            else:
-                period_stats["most_sold_products"] = most_sold_products
-
-            statistics[period_name] = period_stats
-
-        return Response(
-            {"statistics": statistics},
-            status=status.HTTP_200_OK,
+        sales_qs = (
+            Sale.objects.filter(is_active=True)
+            .annotate(latest_state=Subquery(latest_state_subquery))
+            .filter(latest_state=StateChange.COBRADA)
         )
+        returns_qs = Return.objects.all()
+        expenses_qs = Expense.objects.all()
+
+        data = {
+            "total_sales_count": 0,
+            "total_sales": "0.00",
+            "total_collected_amount": "0.00",
+            "total_returns_amount": "0.00",
+            "total_expenses": "0.00",
+            "total_profit": "0.00",
+            "most_sold_products": [],
+        }
+
+        param_today = "today" in request.query_params
+        param_month = request.query_params.get("month")
+        param_week = request.query_params.get("week")
+        param_year = request.query_params.get("year")
+        param_start_date = request.query_params.get("start_date")
+        param_end_date = request.query_params.get("end_date")
+
+        params_count = sum([
+            1 for x in [
+                param_today,
+                param_month,
+                param_week,
+                param_year,
+                param_start_date and param_end_date
+            ] if x
+        ])
+        if params_count == 0:
+            raise ValidationError(
+                "Debes proporcionar un parámetro de rango de fechas (today, month=YYYY-MM, "
+                "week=YYYY-WW, year=YYYY o start_date/end_date)."
+            )
+        if params_count > 1:
+            raise ValidationError("Solo se permite un parámetro de rango de fechas a la vez.")
+
+        start_date = end_date = None
+
+        if param_today:
+            today = datetime.now().date()
+            start_date = end_date = today
+        elif param_week:
+            try:
+                year_str, week_num_str = param_week.split("-W")
+                iso_year = int(year_str)
+                iso_week = int(week_num_str)
+                start_date, end_date = iso_year_week_to_range(iso_year, iso_week)
+            except ValueError:
+                raise ValidationError("Formato de semana inválido. Usa YYYY-WW.")
+        elif param_month:
+            try:
+                year, month_num = map(int, param_month.split("-"))
+                start_date = date(year, month_num, 1)
+                end_date = date(year, month_num + 1, 1) - timedelta(days=1) if month_num != 12 else date(year, 12, 31)
+            except ValueError:
+                raise ValidationError("Formato de mes inválido. Usa YYYY-MM.")
+        elif param_year:
+            try:
+                year = int(param_year)
+                start_date = date(year, 1, 1)
+                end_date = date(year, 12, 31)
+            except ValueError:
+                raise ValidationError("Formato de año inválido. Usa YYYY.")
+        elif param_start_date and param_end_date:
+            try:
+                sd = parse_date(param_start_date)
+                ed = parse_date(param_end_date)
+                if not sd or not ed or sd > ed:
+                    raise ValueError
+                start_date, end_date = sd, ed
+            except ValueError:
+                raise ValidationError("Formato de fecha inválido o fecha de inicio posterior a fecha fin. Usa YYYY-MM-DD.")
+
+        start_dt = timezone.make_aware(datetime.combine(start_date, datetime.min.time()), timezone.get_current_timezone())
+        end_dt = timezone.make_aware(datetime.combine(end_date, datetime.max.time()), timezone.get_current_timezone())
+
+        sales_filtered = sales_qs.filter(date__range=(start_dt, end_dt))
+        returns_filtered = returns_qs.filter(date__range=(start_dt, end_dt))
+        expenses_filtered = expenses_qs.filter(date__range=(start_dt, end_dt))
+
+        total_sales_amount = sales_filtered.aggregate(total_sales=Sum("total"))["total_sales"] or Decimal("0.00")
+        total_collected_amount = sales_filtered.aggregate(total_collected=Sum("total_collected"))["total_collected"] or Decimal("0.00")
+        total_returns_amount = returns_filtered.aggregate(total=Sum("total"))["total"] or Decimal("0.00")
+        total_expenses = expenses_filtered.aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+        total_profit = total_collected_amount - total_returns_amount - total_expenses
+        total_sales_count = sales_filtered.count()
+
+        data.update({
+            "total_sales_count": total_sales_count,
+            "total_sales": str(total_sales_amount),
+            "total_collected_amount": str(total_collected_amount),
+            "total_returns_amount": str(total_returns_amount),
+            "total_expenses": str(total_expenses),
+            "total_profit": str(total_profit.quantize(Decimal("0.01"))),
+        })
+
+        sale_details_qs = SaleDetail.objects.filter(sale__in=sales_filtered)
+        most_sold_products = (
+            sale_details_qs.values("product__name", "product__slug")
+            .annotate(total_quantity=Sum("quantity"))
+            .order_by("-total_quantity")[:5]
+        )
+        data["most_sold_products"] = [
+            {
+                "product_name": item["product__name"],
+                "product_slug": item["product__slug"],
+                "total_quantity_sold": item["total_quantity"] or 0,
+            }
+            for item in most_sold_products
+        ]
+
+        if param_year:
+            sales_monthly = (
+                sales_filtered.annotate(month_only=TruncMonth("date"))
+                .values("month_only")
+                .annotate(
+                    sales_count=Count("id"),
+                    total_sales=Sum("total"),
+                    total_collected=Sum("total_collected"),
+                )
+                .order_by("month_only")
+            )
+            returns_monthly = (
+                returns_filtered.annotate(month_only=TruncMonth("date"))
+                .values("month_only")
+                .annotate(total_returns=Sum("total"))
+                .order_by("month_only")
+            )
+            expenses_monthly = (
+                expenses_filtered.annotate(month_only=TruncMonth("date"))
+                .values("month_only")
+                .annotate(total_expenses=Sum("amount"))
+                .order_by("month_only")
+            )
+
+            sales_dict = {item["month_only"].date(): item for item in sales_monthly}
+            returns_dict = {item["month_only"].date(): item for item in returns_monthly}
+            expenses_dict = {item["month_only"].date(): item for item in expenses_monthly}
+
+            breakdown = []
+            current_month = date(start_date.year, start_date.month, 1)
+            last_month = date(end_date.year, end_date.month, 1)
+
+            while current_month <= last_month:
+                s_data = sales_dict.get(current_month, {})
+                r_data = returns_dict.get(current_month, {})
+                e_data = expenses_dict.get(current_month, {})
+
+                sales_count = s_data.get("sales_count", 0)
+                total_sales_ = s_data.get("total_sales", Decimal("0.00"))
+                total_collected_ = s_data.get("total_collected", Decimal("0.00"))
+                total_returns_ = r_data.get("total_returns", Decimal("0.00"))
+                monthly_expenses_ = e_data.get("total_expenses", Decimal("0.00"))
+                net_collected_ = total_collected_ - total_returns_
+                monthly_profit_ = net_collected_ - monthly_expenses_
+
+                if any([
+                    sales_count,
+                    total_sales_,
+                    total_collected_,
+                    total_returns_,
+                    monthly_expenses_,
+                    net_collected_,
+                    monthly_profit_,
+                ]):
+                    breakdown.append({
+                        "month": current_month.strftime("%Y-%m"),
+                        "sales_count": sales_count,
+                        "total_sales": str(total_sales_),
+                        "total_collected": str(total_collected_),
+                        "total_returns": str(total_returns_),
+                        "net_collected": str(net_collected_),
+                        "monthly_expenses": str(monthly_expenses_),
+                        "monthly_profit": str(monthly_profit_),
+                    })
+
+                year_, month_ = (current_month.year + (current_month.month // 12), (current_month.month % 12) + 1) if current_month.month == 12 else (current_month.year, current_month.month + 1)
+                current_month = date(year_, month_, 1)
+
+            data["monthly_breakdown"] = breakdown
+
+        else:
+            sales_daily = (
+                sales_filtered.annotate(date_only=TruncDate("date"))
+                .values("date_only")
+                .annotate(
+                    sales_count=Count("id"),
+                    total_sales=Sum("total"),
+                    total_collected=Sum("total_collected"),
+                )
+                .order_by("date_only")
+            )
+            returns_daily = (
+                returns_filtered.annotate(date_only=TruncDate("date"))
+                .values("date_only")
+                .annotate(total_returns=Sum("total"))
+                .order_by("date_only")
+            )
+            expenses_daily = (
+                expenses_filtered.annotate(date_only=TruncDate("date"))
+                .values("date_only")
+                .annotate(total_expenses=Sum("amount"))
+                .order_by("date_only")
+            )
+
+            sales_dict = {item["date_only"]: item for item in sales_daily}
+            returns_dict = {item["date_only"]: item for item in returns_daily}
+            expenses_dict = {item["date_only"]: item for item in expenses_daily}
+
+            breakdown = []
+            current_day = start_date
+            while current_day <= end_date:
+                s_data = sales_dict.get(current_day, {})
+                r_data = returns_dict.get(current_day, {})
+                e_data = expenses_dict.get(current_day, {})
+
+                sales_count = s_data.get("sales_count", 0)
+                total_sales_ = s_data.get("total_sales", Decimal("0.00"))
+                total_collected_ = s_data.get("total_collected", Decimal("0.00"))
+                total_returns_ = r_data.get("total_returns", Decimal("0.00"))
+                daily_expenses_ = e_data.get("total_expenses", Decimal("0.00"))
+                net_collected_ = total_collected_ - total_returns_
+                daily_profit_ = net_collected_ - daily_expenses_
+
+                if any([
+                    sales_count,
+                    total_sales_,
+                    total_collected_,
+                    total_returns_,
+                    daily_expenses_,
+                    net_collected_,
+                    daily_profit_,
+                ]):
+                    breakdown.append({
+                        "date": current_day.isoformat(),
+                        "sales_count": sales_count,
+                        "total_sales": str(total_sales_),
+                        "total_collected": str(total_collected_),
+                        "total_returns": str(total_returns_),
+                        "net_collected": str(net_collected_),
+                        "daily_expenses": str(daily_expenses_),
+                        "daily_profit": str(daily_profit_),
+                    })
+
+                current_day += timedelta(days=1)
+
+            data["daily_breakdown"] = breakdown
+
+        return Response(data, status=status.HTTP_200_OK)
