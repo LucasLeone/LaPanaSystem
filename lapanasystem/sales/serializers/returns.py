@@ -3,6 +3,7 @@ from django.db import transaction
 
 # Django REST Framework
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 
 # Models
 from lapanasystem.sales.models import Return, ReturnDetail
@@ -16,6 +17,7 @@ from lapanasystem.sales.serializers import SaleSerializer
 
 # Utilities
 from decimal import Decimal
+from collections import defaultdict
 
 
 class ReturnDetailSerializer(serializers.ModelSerializer):
@@ -41,7 +43,7 @@ class ReturnDetailSerializer(serializers.ModelSerializer):
         """Set product field as not required for update."""
         super(ReturnDetailSerializer, self).__init__(*args, **kwargs)
         if self.instance:
-            self.fields['product'].required = False
+            self.fields["product"].required = False
 
     def get_subtotal(self, obj):
         """Calculate the subtotal for the detail."""
@@ -49,7 +51,7 @@ class ReturnDetailSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """Validate that the product has a valid wholesale price and quantity is valid."""
-        product = data.get("product", getattr(self.instance, 'product', None))
+        product = data.get("product", getattr(self.instance, "product", None))
         if product is None:
             raise serializers.ValidationError("El campo 'product' es obligatorio.")
 
@@ -117,41 +119,49 @@ class ReturnSerializer(serializers.ModelSerializer):
 
     def get_customer(self, obj):
         """Return the customer details."""
-        return {
-            "id": obj.sale.customer.id,
-            "name": obj.sale.customer.name,
-            "email": obj.sale.customer.email,
-        } if obj.sale.customer else None
+        return (
+            {
+                "id": obj.sale.customer.id,
+                "name": obj.sale.customer.name,
+                "email": obj.sale.customer.email,
+            }
+            if obj.sale.customer
+            else None
+        )
 
     @transaction.atomic
     def create(self, validated_data):
-        """Create a return."""
         return_details_data = validated_data.pop("return_details", [])
+        sale_instance = validated_data["sale"]
+
         return_order = Return.objects.create(**validated_data)
 
-        if return_details_data:
-            for detail_data in return_details_data:
-                product = detail_data.pop("product")
-                detail_data["product"] = product.pk
-
-                detail_serializer = ReturnDetailSerializer(
-                    data=detail_data, context={"return": return_order}
-                )
-                detail_serializer.is_valid(raise_exception=True)
-                detail_serializer.save()
-
-            return_order.calculate_total()
-            return return_order
-        else:
+        if not return_details_data:
             raise serializers.ValidationError(
-                "La devolución tiene que tener un detalle por lo menos."
+                "La devolución tiene que tener al menos un detalle."
             )
+
+        for detail_data in return_details_data:
+            product = detail_data.pop("product")
+            detail_data["product"] = product.pk
+
+            detail_serializer = ReturnDetailSerializer(
+                data=detail_data, context={"return": return_order}
+            )
+            detail_serializer.is_valid(raise_exception=True)
+            detail_serializer.save()
+
+        self._validate_return_quantities(sale_instance, return_order)
+
+        return_order.calculate_total()
+        return return_order
 
     @transaction.atomic
     def update(self, instance, validated_data):
         """Update a return."""
         return_details_data = validated_data.pop("return_details", [])
         return_order = instance
+        sale_instance = return_order.sale
 
         for attr, value in validated_data.items():
             setattr(return_order, attr, value)
@@ -163,7 +173,7 @@ class ReturnSerializer(serializers.ModelSerializer):
         incoming_ids = []
 
         for detail_data in return_details_data:
-            detail_id = detail_data.get("id", None)
+            detail_id = detail_data.get("id")
             product = detail_data.pop("product")
             detail_data["product"] = product.pk
 
@@ -187,5 +197,43 @@ class ReturnSerializer(serializers.ModelSerializer):
             if detail_id not in incoming_ids:
                 detail.delete()
 
+        self._validate_return_quantities(sale_instance, return_order)
+
         return_order.calculate_total()
         return return_order
+
+    def _validate_return_quantities(self, sale_instance, return_order):
+        old_returns = Return.objects.filter(sale=sale_instance).exclude(
+            pk=return_order.pk
+        )
+
+        old_returned_per_product = defaultdict(Decimal)
+        for ret in old_returns:
+            for rd in ret.return_details.all():
+                old_returned_per_product[rd.product_id] += rd.quantity
+
+        new_returned_per_product = defaultdict(Decimal)
+        for rd in return_order.return_details.all():
+            new_returned_per_product[rd.product_id] += rd.quantity
+
+        final_returned_per_product = defaultdict(Decimal, old_returned_per_product)
+        for product_id, new_qty in new_returned_per_product.items():
+            final_returned_per_product[product_id] += new_qty
+
+        sold_per_product = {}
+        for sale_detail in sale_instance.sale_details.all():
+            sold_per_product[sale_detail.product_id] = sale_detail.quantity
+
+        for product_id, final_qty in final_returned_per_product.items():
+            sold_qty = sold_per_product.get(product_id, Decimal("0"))
+            if final_qty > sold_qty:
+                product_name = Product.objects.get(pk=product_id).name
+                old_qty = old_returned_per_product[product_id]
+                new_qty = new_returned_per_product[product_id]
+
+                raise ValidationError(
+                    f"Para el producto '{product_name}' se vendieron {sold_qty} uds/kg. "
+                    f"Ya se han devuelto (anteriores): {old_qty}, "
+                    f"ahora intentas devolver {new_qty} más, llegando a un total de {final_qty}, "
+                    f"lo cual excede lo vendido."
+                )
