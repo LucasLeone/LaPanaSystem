@@ -20,11 +20,3 @@ class CustomerSerializer(serializers.ModelSerializer):
     def validate_email(self, value):
         """Normalize email to lowercase."""
         return value.lower() if value else None
-
-    def validate(self, data):
-        """Add any cross-field validations here."""
-        if data.get("customer_type") == "mayorista" and not data.get("address"):
-            raise serializers.ValidationError(
-                "Los clientes mayoristas deben tener una dirección."
-            )
-        return data
