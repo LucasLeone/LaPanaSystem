@@ -31,7 +31,7 @@ certificatesResolvers:
 http:
   routers:
     web-secure-router:
-      rule: 'Host(`lapanasystem.com.ar`)'
+      rule: 'Host(`lapanasystem.online`)'
       entryPoints:
         - web-secure
       middlewares:
@@ -42,7 +42,7 @@ http:
         certResolver: letsencrypt
 
     flower-secure-router:
-      rule: 'Host(`lapanasystem.com.ar`)'
+      rule: 'Host(`lapanasystem.online`)'
       entryPoints:
         - flower
       service: flower

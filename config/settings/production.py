@@ -10,7 +10,7 @@ from .base import env
 # https://docs.djangoproject.com/en/dev/ref/settings/#secret-key
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 # https://docs.djangoproject.com/en/dev/ref/settings/#allowed-hosts
-ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["lapanasystem.com.ar"])
+ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["lapanasystem.online"])
 
 # DATABASES
 # ------------------------------------------------------------------------------
@@ -78,7 +78,7 @@ STORAGES = {
 # https://docs.djangoproject.com/en/dev/ref/settings/#default-from-email
 DEFAULT_FROM_EMAIL = env(
     "DJANGO_DEFAULT_FROM_EMAIL",
-    default="LaPanaSystem <noreply@lapanasystem.com.ar>",
+    default="LaPanaSystem <noreply@lapanasystem.online>",
 )
 # https://docs.djangoproject.com/en/dev/ref/settings/#server-email
 SERVER_EMAIL = env("DJANGO_SERVER_EMAIL", default=DEFAULT_FROM_EMAIL)
@@ -155,7 +155,7 @@ LOGGING = {
 # -------------------------------------------------------------------------------
 # Tools that generate code samples can use SERVERS to point to the correct domain
 SPECTACULAR_SETTINGS["SERVERS"] = [
-    {"url": "https://lapanasystem.com.ar", "description": "Production server"},
+    {"url": "https://lapanasystem.online", "description": "Production server"},
 ]
 # Your stuff...
 # ------------------------------------------------------------------------------
