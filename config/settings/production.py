@@ -159,4 +159,8 @@ SPECTACULAR_SETTINGS["SERVERS"] = [
 ]
 # Your stuff...
 # ------------------------------------------------------------------------------
-CORS_ALLOW_ALL_ORIGINS = True
+
+# CORS settings for production
+CORS_ALLOWED_ORIGINS = [
+    "https://lapanasystem-frontend.vercel.app/",
+]
