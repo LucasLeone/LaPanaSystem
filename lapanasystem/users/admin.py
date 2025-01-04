@@ -17,6 +17,7 @@ class UserAdmin(admin.ModelAdmin):
         "email",
         "first_name",
         "last_name",
+        "user_type",
         "is_staff",
         "is_active",
     )
