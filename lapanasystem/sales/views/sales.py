@@ -469,7 +469,6 @@ class SaleViewSet(ModelViewSet):
             .values("state")[:1]
         )
 
-        # Filtramos ventas que están activas y con estado COBRADA
         sales_qs = (
             Sale.objects.filter(is_active=True)
             .annotate(latest_state=Subquery(latest_state_subquery))
@@ -488,7 +487,6 @@ class SaleViewSet(ModelViewSet):
             "most_sold_products": [],
         }
 
-        # Parámetros de rango de fechas
         param_today = "today" in request.query_params
         param_month = request.query_params.get("month")
         param_week = request.query_params.get("week")
@@ -496,7 +494,6 @@ class SaleViewSet(ModelViewSet):
         param_start_date = request.query_params.get("start_date")
         param_end_date = request.query_params.get("end_date")
 
-        # Validamos que solo se use uno de los parámetros de fecha
         params_count = sum(
             [
                 1
@@ -520,7 +517,6 @@ class SaleViewSet(ModelViewSet):
                 "Solo se permite un parámetro de rango de fechas a la vez."
             )
 
-        # Convertimos el parámetro recibido a rango de fechas start_date, end_date
         start_date = end_date = None
 
         if param_today:
@@ -538,8 +534,6 @@ class SaleViewSet(ModelViewSet):
             try:
                 year, month_num = map(int, param_month.split("-"))
                 start_date = date(year, month_num, 1)
-                # Si es diciembre, el end_date será 31/12 de ese año;
-                # si no, usamos el día anterior al 1 del siguiente mes
                 end_date = (
                     date(year, 12, 31)
                     if month_num == 12
@@ -568,7 +562,6 @@ class SaleViewSet(ModelViewSet):
                     "Formato de fecha inválido o fecha de inicio posterior a fecha fin. Usa YYYY-MM-DD."
                 )
 
-        # Ajustamos el rango de fechas para datetime
         start_dt = timezone.make_aware(
             datetime.combine(start_date, datetime.min.time()),
             timezone.get_current_timezone(),
@@ -578,12 +571,10 @@ class SaleViewSet(ModelViewSet):
             timezone.get_current_timezone(),
         )
 
-        # Filtramos las ventas, devoluciones y gastos en el rango
         sales_filtered = sales_qs.filter(date__range=(start_dt, end_dt))
         returns_filtered = returns_qs.filter(date__range=(start_dt, end_dt))
         expenses_filtered = expenses_qs.filter(date__range=(start_dt, end_dt))
 
-        # Agregados totales
         total_sales_amount = sales_filtered.aggregate(total_sales=Sum("total"))[
             "total_sales"
         ] or Decimal("0.00")
@@ -610,25 +601,19 @@ class SaleViewSet(ModelViewSet):
             }
         )
 
-        # ----------------------------------------------------------------------
-        # AQUÍ VIENE EL CÓDIGO MODIFICADO PARA DESCONTAR DEVOLUCIONES
-        # ----------------------------------------------------------------------
-        # 1. Cantidad vendida por producto (en las ventas filtradas)
         sale_details_qs = SaleDetail.objects.filter(sale__in=sales_filtered)
         sold_aggregated = sale_details_qs.values(
             "product__name", "product__slug"
         ).annotate(total_sold=Sum("quantity"))
 
-        # 2. Cantidad devuelta por producto, para las mismas ventas y en el mismo rango
         returned_details_qs = ReturnDetail.objects.filter(
-            return_order__in=returns_filtered,  # devoluciones en el rango
-            return_order__sale__in=sales_filtered,  # y asociadas a las ventas filtradas
+            return_order__in=returns_filtered,
+            return_order__sale__in=sales_filtered,
         )
         returned_aggregated = returned_details_qs.values(
             "product__name", "product__slug"
         ).annotate(total_returned=Sum("quantity"))
 
-        # Convertimos a diccionarios para facilitar la resta
         sold_dict = {
             item["product__slug"]: {
                 "product_name": item["product__name"],
@@ -642,7 +627,6 @@ class SaleViewSet(ModelViewSet):
             for item in returned_aggregated
         }
 
-        # 3. Restar total_returned a total_sold para obtener venta neta
         results = []
         for slug, sold_data in sold_dict.items():
             total_sold = sold_data["total_sold"]
@@ -657,14 +641,10 @@ class SaleViewSet(ModelViewSet):
                 }
             )
 
-        # 4. Ordenar descendentemente por cantidad vendida neta y tomar los primeros 5
         results.sort(key=lambda x: x["total_quantity_sold"], reverse=True)
         data["most_sold_products"] = results[:5]
-        # ----------------------------------------------------------------------
 
-        # Desglose mensual (cuando param_year) o diario (caso contrario)
         if param_year:
-            # Agregación por mes
             sales_monthly = (
                 sales_filtered.annotate(month_only=TruncMonth("date"))
                 .values("month_only")
@@ -711,7 +691,6 @@ class SaleViewSet(ModelViewSet):
                 net_collected_ = total_collected_ - total_returns_
                 monthly_profit_ = net_collected_ - monthly_expenses_
 
-                # Verificamos si hay algo distinto de cero para incluirlo
                 if any(
                     [
                         sales_count_,
@@ -736,7 +715,6 @@ class SaleViewSet(ModelViewSet):
                         }
                     )
 
-                # Avanzamos un mes
                 if current_month.month == 12:
                     year_, month_ = current_month.year + 1, 1
                 else:
@@ -746,7 +724,6 @@ class SaleViewSet(ModelViewSet):
             data["monthly_breakdown"] = breakdown
 
         else:
-            # Agregación diaria
             sales_daily = (
                 sales_filtered.annotate(date_only=TruncDate("date"))
                 .values("date_only")
