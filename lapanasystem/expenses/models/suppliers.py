@@ -19,7 +19,7 @@ class Supplier(LPSModel):
             "Up to 15 digits allowed."
         ),
     )
-    phone_number = models.CharField(validators=[phone_regex], max_length=17)
+    phone_number = models.CharField(validators=[phone_regex], max_length=17, blank=True)
     email = models.EmailField(max_length=100, blank=True, unique=True)
     address = models.CharField(max_length=255, blank=True)
 
