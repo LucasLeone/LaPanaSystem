@@ -688,8 +688,7 @@ class SaleViewSet(ModelViewSet):
                 total_collected_ = s_data.get("total_collected", Decimal("0.00"))
                 total_returns_ = r_data.get("total_returns", Decimal("0.00"))
                 monthly_expenses_ = e_data.get("total_expenses", Decimal("0.00"))
-                net_collected_ = total_collected_ - total_returns_
-                monthly_profit_ = net_collected_ - monthly_expenses_
+                monthly_profit_ = total_collected_ - monthly_expenses_
 
                 if any(
                     [
@@ -698,7 +697,6 @@ class SaleViewSet(ModelViewSet):
                         total_collected_,
                         total_returns_,
                         monthly_expenses_,
-                        net_collected_,
                         monthly_profit_,
                     ]
                 ):
@@ -709,7 +707,6 @@ class SaleViewSet(ModelViewSet):
                             "total_sales": str(total_sales_),
                             "total_collected": str(total_collected_),
                             "total_returns": str(total_returns_),
-                            "net_collected": str(net_collected_),
                             "monthly_expenses": str(monthly_expenses_),
                             "monthly_profit": str(monthly_profit_),
                         }
@@ -763,8 +760,7 @@ class SaleViewSet(ModelViewSet):
                 total_collected_ = s_data.get("total_collected", Decimal("0.00"))
                 total_returns_ = r_data.get("total_returns", Decimal("0.00"))
                 daily_expenses_ = e_data.get("total_expenses", Decimal("0.00"))
-                net_collected_ = total_collected_ - total_returns_
-                daily_profit_ = net_collected_ - daily_expenses_
+                daily_profit_ = total_collected_ - daily_expenses_
 
                 if any(
                     [
@@ -773,7 +769,6 @@ class SaleViewSet(ModelViewSet):
                         total_collected_,
                         total_returns_,
                         daily_expenses_,
-                        net_collected_,
                         daily_profit_,
                     ]
                 ):
@@ -784,7 +779,6 @@ class SaleViewSet(ModelViewSet):
                             "total_sales": str(total_sales_),
                             "total_collected": str(total_collected_),
                             "total_returns": str(total_returns_),
-                            "net_collected": str(net_collected_),
                             "daily_expenses": str(daily_expenses_),
                             "daily_profit": str(daily_profit_),
                         }
