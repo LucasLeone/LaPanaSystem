@@ -390,7 +390,7 @@ class SaleViewSet(ModelViewSet):
         )
 
         sales_qs = (
-            Sale.objects.filter(is_active=True, sale_type=Sale.MAYORISTA)
+            Sale.objects.filter(is_active=True)
             .annotate(latest_state=Subquery(latest_state_subquery))
             .filter(
                 latest_state__in=[StateChange.ENTREGADA, StateChange.COBRADA_PARCIAL]

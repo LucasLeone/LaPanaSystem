@@ -169,6 +169,13 @@ class SaleSerializer(serializers.ModelSerializer):
         if len(product_ids) != len(set(product_ids)):
             raise serializers.ValidationError("No se pueden repetir productos en los detalles de la venta.")
 
+        sale_type = data.get("sale_type", None)
+        needs_delivery = data.get("needs_delivery", False)
+        if sale_type == Sale.MINORISTA and needs_delivery:
+            raise serializers.ValidationError(
+                "Una venta minorista no puede requerir envio."
+            )
+
         return data
 
     @transaction.atomic
@@ -190,20 +197,22 @@ class SaleSerializer(serializers.ModelSerializer):
                 sale_detail_serializer.is_valid(raise_exception=True)
                 sale_detail_serializer.save()
 
-        if sale_details_data and needs_delivery is True:
-            sale.calculate_total()
-            StateChange.objects.create(sale=sale, state=StateChange.CREADA)
-            eta = (
-                sale.date
-                if timezone.is_aware(sale.date)
-                else timezone.make_aware(sale.date)
-            )
-            transaction.on_commit(lambda: change_state_to_ready_for_delivery.apply_async(args=[sale.id], eta=eta))
-        elif sale_details_data and needs_delivery is False:
-            sale.calculate_total()
-            StateChange.objects.create(sale=sale, state=StateChange.COBRADA)
-        else:
-            StateChange.objects.create(sale=sale, state=StateChange.COBRADA)
+            if sale_details_data:
+                sale.calculate_total()
+
+                if needs_delivery:
+                    StateChange.objects.create(sale=sale, state=StateChange.CREADA)
+                    eta = (
+                        sale.date
+                        if timezone.is_aware(sale.date)
+                        else timezone.make_aware(sale.date)
+                    )
+                    transaction.on_commit(lambda: change_state_to_ready_for_delivery.apply_async(args=[sale.id], eta=eta))
+                else:
+                    sale.total_collected = sale.total
+                    StateChange.objects.create(sale=sale, state=StateChange.COBRADA)
+
+                sale.save()
 
         return sale
 
