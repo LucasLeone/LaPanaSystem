@@ -70,7 +70,7 @@ class Product(LPSModel):
         "product weight", max_digits=10, decimal_places=3, blank=True, null=True
     )
     weight_unit = models.CharField(
-        max_length=2, choices=WEIGHT_UNIT_CHOICES, blank=True, null=True
+        max_length=3, choices=WEIGHT_UNIT_CHOICES, blank=True, null=True
     )
     description = models.TextField("product description", blank=True)
     category = models.ForeignKey(
