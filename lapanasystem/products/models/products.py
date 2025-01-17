@@ -47,10 +47,16 @@ class Product(LPSModel):
 
     GRAMS = "g"
     KILOS = "kg"
+    LITERS = "l"
+    MILLILITERS = "ml"
+    CUBIC_CENTIMETERS = "cm3"
 
     WEIGHT_UNIT_CHOICES = [
         (GRAMS, "Gramos"),
         (KILOS, "Kilos"),
+        (LITERS, "Litros"),
+        (MILLILITERS, "Mililitros"),
+        (CUBIC_CENTIMETERS, "Centímetros cúbicos"),
     ]
 
     barcode = models.CharField("product barcode", max_length=255, unique=True)
